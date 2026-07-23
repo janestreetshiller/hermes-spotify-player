@@ -321,6 +321,7 @@ class SpotifyPluginApiTests(unittest.TestCase):
                 "scope": "user-library-read playlist-modify-private",
                 "expires_at": 1234567890,
                 "client_id": "must-not-leak",
+                "redirect_uri": "http://127.0.0.1:49999/custom/callback",
             }
         ), patch.object(api, "_configured_spotify_client_id", return_value="configured-client"):
             response = make_client(api).get("/auth/status")
@@ -329,6 +330,7 @@ class SpotifyPluginApiTests(unittest.TestCase):
         body = response.json()
         self.assertTrue(body["loggedIn"])
         self.assertTrue(body["clientConfigured"])
+        self.assertEqual(body["redirectUri"], "http://127.0.0.1:49999/custom/callback")
         self.assertNotIn("client_id", json.dumps(body))
         self.assertNotIn("must-not-leak", json.dumps(body))
 

@@ -2,6 +2,8 @@
 
 A native Spotify side pocket for [Hermes Desktop](https://hermes-agent.nousresearch.com/docs/user-guide/desktop) on macOS.
 
+![Hermes Spotify Player open beside a Hermes conversation](docs/media/hermes-spotify-player.png)
+
 It keeps playback inside the desktop workflow without embedding Spotify's Widevine-protected web player. Hermes controls the signed-in Spotify macOS app locally, while its scoped backend uses Hermes' existing Spotify PKCE connection for catalog and library actions.
 
 ## Features
@@ -18,7 +20,7 @@ It keeps playback inside the desktop workflow without embedding Spotify's Widevi
 ## Requirements
 
 - macOS
-- Hermes Agent **0.19.0 or newer** with Hermes Desktop
+- Hermes Agent **0.19.x** with Hermes Desktop
 - Spotify for macOS, signed in
 - A Spotify developer Client ID for search, likes, and playlists (the in-app PKCE setup walks through this)
 
@@ -55,6 +57,8 @@ http://127.0.0.1:43827/spotify/callback
 ```
 
 Hermes uses PKCE. No Spotify client secret or Spotify password is stored by this plugin.
+
+The setup dialog reads Hermes' configured redirect URI, including a custom `HERMES_SPOTIFY_REDIRECT_URI`, instead of assuming the default callback.
 
 ## Privacy and network access
 

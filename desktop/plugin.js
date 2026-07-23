@@ -833,7 +833,12 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track }) {
 
 function SpotifyAuthDialog() {
   const open = useValue($authOpen)
-  const [auth, setAuth] = useState({ loggedIn: false, clientConfigured: false, phase: 'idle' })
+  const [auth, setAuth] = useState({
+    loggedIn: false,
+    clientConfigured: false,
+    phase: 'idle',
+    redirectUri: 'http://127.0.0.1:43827/spotify/callback'
+  })
   const [clientId, setClientId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -962,7 +967,7 @@ function SpotifyAuthDialog() {
                           jsx('div', { className: 'mt-3 text-xs font-semibold', children: '2. Add this redirect URI' }),
                           jsx('code', {
                             className: 'mt-1 block select-all overflow-x-auto rounded bg-black/20 px-2 py-1.5 text-[0.6875rem] text-(--ui-text-secondary)',
-                            children: 'http://127.0.0.1:43827/spotify/callback'
+                            children: auth.redirectUri || 'http://127.0.0.1:43827/spotify/callback'
                           }),
                           jsx('div', { className: 'mt-3 text-xs font-semibold', children: '3. Paste the Client ID' }),
                           jsx(Input, {

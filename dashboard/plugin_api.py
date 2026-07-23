@@ -18,12 +18,11 @@ from urllib.request import Request, urlopen
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from hermes_cli.auth import (
-    AuthError,
-    _spotify_client_id,
-    get_provider_auth_state,
+    DEFAULT_SPOTIFY_REDIRECT_URI,
     get_spotify_auth_status,
     login_spotify_command,
 )
+from hermes_cli.config import get_env_value
 from plugins.spotify.client import SpotifyClient
 
 router = APIRouter()
@@ -69,11 +68,33 @@ class AuthStartRequest(BaseModel):
 
 
 def _configured_spotify_client_id(explicit: str = "") -> str:
-    existing_state = get_provider_auth_state("spotify") or {}
-    try:
-        return _spotify_client_id(explicit or None, existing_state)
-    except AuthError:
-        return ""
+    status = get_spotify_auth_status() or {}
+    candidates = (
+        explicit,
+        get_env_value("HERMES_SPOTIFY_CLIENT_ID"),
+        get_env_value("SPOTIFY_CLIENT_ID"),
+        status.get("client_id"),
+    )
+    for candidate in candidates:
+        cleaned = str(candidate or "").strip()
+        if cleaned:
+            return cleaned
+    return ""
+
+
+def _configured_spotify_redirect_uri(status: dict[str, Any] | None = None) -> str:
+    status = status or {}
+    candidates = (
+        get_env_value("HERMES_SPOTIFY_REDIRECT_URI"),
+        get_env_value("SPOTIFY_REDIRECT_URI"),
+        status.get("redirect_uri"),
+        DEFAULT_SPOTIFY_REDIRECT_URI,
+    )
+    for candidate in candidates:
+        cleaned = str(candidate or "").strip()
+        if cleaned:
+            return cleaned
+    return DEFAULT_SPOTIFY_REDIRECT_URI
 
 
 def _run_spotify_auth(client_id: str) -> None:
@@ -111,6 +132,7 @@ def spotify_auth_status() -> dict[str, Any]:
         "ok": True,
         "loggedIn": logged_in,
         "clientConfigured": bool(_configured_spotify_client_id()),
+        "redirectUri": _configured_spotify_redirect_uri(status),
         "phase": phase,
         "message": "Spotify connected securely." if logged_in else str(flow.get("message") or ""),
         "scope": str(status.get("scope") or ""),
