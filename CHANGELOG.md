@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 — unreleased
+## 1.2.0 — 2026-07-23
 
 - Native resizable Spotify player pane and status-bar controls
 - Spotify track search and playback
