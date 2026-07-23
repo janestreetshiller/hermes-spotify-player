@@ -1,0 +1,5 @@
+name: spotify-player
+version: 1.2.0
+description: Native macOS Spotify controls, search, library actions, playlists, and synced lyrics for Hermes Desktop.
+author: Hermes Spotify Player contributors
+kind: backend

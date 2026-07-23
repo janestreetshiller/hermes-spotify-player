@@ -1,0 +1,10 @@
+{
+  "name": "spotify-player",
+  "label": "Spotify Player Backend",
+  "description": "Local macOS playback bridge and Spotify Web API backend for Hermes Desktop.",
+  "icon": "Music",
+  "version": "1.2.0",
+  "tab": { "path": "/spotify-player", "hidden": true },
+  "entry": "dist/index.js",
+  "api": "plugin_api.py"
+}
