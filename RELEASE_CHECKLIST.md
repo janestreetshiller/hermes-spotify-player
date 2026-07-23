@@ -10,6 +10,6 @@
 - [ ] Visual QA in light and dark themes at compact/default/expanded heights
 - [x] Add 2–4 product images under `docs/media/`
 - [x] Independent security/code review
-- [ ] Create public GitHub repository and push the verified commit
-- [ ] Tag `v1.2.0` and publish release notes
+- [x] Create public GitHub repository and push the verified commit
+- [x] Tag `v1.2.0` and publish release notes
 - [ ] Post launch copy and images to X / Discord
