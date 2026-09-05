@@ -6,12 +6,23 @@ import path from 'node:path'
 const vendor=await readFile('vendor/metal-fx/index.es.js','utf8')
 const fragment=vendor.slice(vendor.indexOf('  precision highp float;'),vendor.indexOf('\n`\n);')).replaceAll('\\`','`').trim()
 const root=path.resolve('docs/demo')
-const server=createServer(async(req,res)=>{try{const p=path.resolve(root,'.'+decodeURIComponent(req.url.split('?')[0]));if(!p.startsWith(root+path.sep)&&p!==root)throw Error();const file=p===root?path.join(root,'index.html'):p;res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.webp':'image/webp'})[path.extname(file)]||'application/octet-stream');res.end(await readFile(file))}catch{res.statusCode=404;res.end()}})
+// Preload a fixed asset set: request input never reaches a filesystem API.
+const assets=new Map(await Promise.all([
+ ['/', 'index.html', 'text/html'], ['/index.html', 'index.html', 'text/html'],
+ ['/app.js', 'app.js', 'text/javascript'], ['/style.css', 'style.css', 'text/css'],
+ ['/artwork.webp', 'artwork.webp', 'image/webp']
+].map(async([url,file,type])=>[url,{body:await readFile(path.join(root,file)),type}])))
+const server=createServer((req,res)=>{
+ const asset=assets.get((req.url||'/').split('?')[0])
+ if(!asset){res.statusCode=404;res.end();return}
+ res.setHeader('Content-Type',asset.type);res.end(asset.body)
+})
 await new Promise(r=>server.listen(0,'127.0.0.1',r))
 const browser=await chromium.launch({headless:true,args:['--enable-unsafe-swiftshader']})
 const page=await browser.newPage({viewport:{width:1280,height:850}})
 const errors=[];page.on('pageerror',e=>errors.push(e.message))
 try{
+ assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/%61pp.js`)).status,404,'test server only serves exact allowlisted asset paths')
  await page.goto(`http://127.0.0.1:${server.address().port}/`)
  await page.getByRole('tab',{name:'Lyrics',exact:true}).waitFor()
  await page.waitForTimeout(4800)

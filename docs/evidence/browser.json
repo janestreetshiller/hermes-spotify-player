@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "statusCallsIn4800ms": 2,
-  "webglDrawsIn1100ms": 11,
+  "webglDrawsIn1100ms": 12,
   "webglBuffer": {
     "width": 30,
     "height": 28
