@@ -10,6 +10,12 @@
 - `npm audit --audit-level=high`: **0 vulnerabilities**, including demo dependencies.
 - `npm run demo:media`: generated a silent MP4 and 1200×675 PNG from real UI. Inspected final visual output; no clipping.
 
+## UI density refinement
+- Default pane reduced to 136px; demo expanded view reduced to 320px.
+- Underlined 28px view tabs replace the large pill bar. Artwork capped at 192px; labeled volume is a short control beside transport.
+- Browser assertions verify artwork/tab/volume bounds and every control fitting a 234×136 standard pane. Desktop/mobile screenshots and media regenerated.
+- This is visual/renderer verification, not a fix or new claim for the unresolved live Hermes backend connection.
+
 ## Native Spotify — real app, not fixtures
 `python scripts/native-smoke.py` ran the scoped FastAPI plugin route via TestClient with the real `osascript` helper and signed-in Spotify **1.2.98.301**, macOS 27 ARM64. Pause, seek, volume and restoration read-backs passed. Spotify reports integer volume with a one-point quantization tolerance.
 

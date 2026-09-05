@@ -23,7 +23,7 @@ test('registers Spotify in a deterministic resizable side pocket', async () => {
   assert.match(text, /placement:\s*'left'/)
   assert.match(text, /collapsible:\s*true/)
   assert.match(text, /dock:\s*\{\s*pane:\s*'sessions',\s*pos:\s*'bottom'\s*\}/)
-  assert.match(text, /height:\s*'152px'/)
+  assert.match(text, /height:\s*'136px'/)
   assert.match(text, /minHeight:\s*'68px'/)
   assert.match(text, /maxHeight:\s*'520px'/)
 })

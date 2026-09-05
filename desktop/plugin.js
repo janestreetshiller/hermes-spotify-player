@@ -96,6 +96,16 @@ const PLAYER_CSS = `
 @keyframes spotify-loader-step{from{transform:scaleY(.35);opacity:.4}to{transform:scaleY(1);opacity:1}}
 .spotify-signal{width:100%;height:40px;display:block;pointer-events:none}
 .spotify-range{width:100%;min-width:0;accent-color:var(--ui-accent)}
+.spotify-surface button{min-height:28px;height:28px;min-width:28px}
+.spotify-view-tabs{display:flex;align-items:center;gap:4px;flex-shrink:0;height:28px;margin-bottom:6px;border-bottom:1px solid var(--ui-stroke-secondary)}
+.spotify-view-tabs button{font-size:11px;font-weight:500;border-radius:0;padding:0 8px;background:transparent;color:var(--ui-text-tertiary)}
+.spotify-view-tabs button[aria-selected=true]{color:var(--ui-text-primary);box-shadow:inset 0 -2px var(--ui-accent)}
+.spotify-view-tabs button:last-child{margin-left:auto}
+.spotify-artwork{display:block;min-height:0;max-height:192px;width:100%;flex:1;object-fit:cover;border-radius:5px}
+.spotify-controls{display:flex;align-items:center;gap:4px;margin-top:4px;flex-shrink:0}
+.spotify-volume{display:flex;align-items:center;gap:6px;margin-left:auto;width:108px;min-width:64px;font-size:10px;color:var(--ui-text-tertiary)}
+.spotify-volume .spotify-range{flex:1;width:0;height:18px;margin:0}
+
 .spotify-standard-top{display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 8px;align-items:center}
 .spotify-standard-top>:first-child{width:40px;height:40px}
 .spotify-standard-top>:last-child{grid-column:1/-1;justify-content:flex-end}
@@ -606,12 +616,12 @@ function NativePlayer() {
         jsx('style', { children: PLAYER_CSS }),
         jsxs('div', {
           'aria-label': 'Expanded player view',
-          className: 'mb-2 flex shrink-0 items-center gap-1 rounded-full bg-(--ui-bg-secondary) p-0.5',
+          className: 'spotify-view-tabs',
           role: 'tablist',
           children: [
             jsx(Button, {
               'aria-selected': activeExpandedView === 'artwork',
-              className: 'flex-1 rounded-full',
+              className: 'shrink-0',
               onClick: () => setActiveExpandedView('artwork'),
               role: 'tab',
               size: 'xs',
@@ -621,7 +631,7 @@ function NativePlayer() {
             }),
             jsx(Button, {
               'aria-selected': activeExpandedView === 'lyrics',
-              className: 'flex-1 rounded-full',
+              className: 'shrink-0',
               onClick: () => setActiveExpandedView('lyrics'),
               role: 'tab',
               size: 'xs',
@@ -637,7 +647,7 @@ function NativePlayer() {
           ? player.artworkUrl
             ? jsx('img', {
                 alt: player.album ? `${player.album} cover` : 'Album cover',
-                className: 'mx-auto min-h-0 max-h-64 w-auto flex-1 rounded-lg object-cover shadow-lg',
+                className: 'spotify-artwork',
                 src: player.artworkUrl
               })
             : jsx('div', {
@@ -700,14 +710,14 @@ function NativePlayer() {
           ]
         }),
         jsxs('div', {
-          className: 'mt-1 flex shrink-0 items-center justify-center gap-1',
+          className: 'spotify-controls',
           children: [
             jsx(Button, { 'aria-label': 'Previous track', disabled: busy || !player.running, onClick: () => void act('previous'), size: 'icon-sm', type: 'button', variant: 'ghost', children: jsx(icons.ChevronLeft, {}) }),
             jsx(Button, { 'aria-label': isPlaying ? 'Pause Spotify' : 'Play Spotify', disabled: busy, onClick: () => void act('playpause'), size: 'icon-sm', type: 'button', children: jsx(isPlaying ? icons.Pause : icons.Play, {}) }),
-            jsx(Button, { 'aria-label': 'Next track', disabled: busy || !player.running, onClick: () => void act('next'), size: 'icon-sm', type: 'button', variant: 'ghost', children: jsx(icons.ChevronRight, {}) })
+            jsx(Button, { 'aria-label': 'Next track', disabled: busy || !player.running, onClick: () => void act('next'), size: 'icon-sm', type: 'button', variant: 'ghost', children: jsx(icons.ChevronRight, {}) }),
+            jsxs('div', { className: 'spotify-volume', children: [jsx('span', { 'aria-hidden': true, children: 'Vol' }), jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) })] })
           ]
         }),
-        jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) }),
         jsx(SpotifyPlaylistDialog, { open: playlistOpen, onOpenChange: setPlaylistOpen, track: player })
       ]
     })
@@ -843,7 +853,7 @@ function NativePlayer() {
           jsx('span', { className: 'w-7 text-right', children: formatTime(durationSeconds) })
         ]
       }),
-      jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) }),
+      jsxs('div', { className: 'spotify-volume', children: [jsx('span', { 'aria-hidden': true, children: 'Vol' }), jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) })] }),
       jsx(SpotifyPlaylistDialog, {
         open: playlistOpen,
         onOpenChange: setPlaylistOpen,
@@ -1413,7 +1423,7 @@ export default {
         placement: 'left',
         collapsible: true,
         dock: { pane: 'sessions', pos: 'bottom' },
-        height: '152px',
+        height: '136px',
         minHeight: '68px',
         maxHeight: '520px'
       },
