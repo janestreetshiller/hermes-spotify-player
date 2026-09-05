@@ -24,6 +24,65 @@ def make_client(api):
 
 
 class SpotifyPluginApiTests(unittest.TestCase):
+    def test_current_hermes_imports_without_deprecated_compat(self):
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            load_api_module()
+
+    def test_native_numbers_are_validated_before_launch(self):
+        api = load_api_module()
+        with patch.object(api.subprocess, 'run') as run:
+            client = make_client(api)
+            for action, values in {'volume': ['NaN', 'Infinity', '-1', '101', 'no'], 'seek': ['NaN', '-1', '86401']}.items():
+                for value in values:
+                    with self.subTest(action=action, value=value):
+                        self.assertEqual(client.post('/control', json={'action': action, 'argument': value}).status_code, 400)
+            run.assert_not_called()
+
+    def test_status_coalesces_and_mutation_invalidates_snapshot(self):
+        from types import SimpleNamespace
+        api = load_api_module()
+        result = SimpleNamespace(returncode=0, stdout=json.dumps({'ok': True, 'running': True, 'state': 'paused'}), stderr='')
+        with patch.object(api.subprocess, 'run', return_value=result) as run, patch.object(api, '_ensure_spotify_running_hidden'):
+            client = make_client(api)
+            client.post('/control', json={'action': 'status'})
+            client.post('/control', json={'action': 'status'})
+            self.assertEqual(run.call_count, 1)
+            response = client.post('/control', json={'action': 'seek', 'argument': '12.5'})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(run.call_args.args[0][-2:], ['seek', '12.5'])
+            self.assertEqual(run.call_count, 2)
+
+    def test_current_spotify_client_request_contract(self):
+        api = load_api_module()
+        client = object.__new__(api.SpotifyClient)
+        with patch.object(api, 'SpotifyClient', return_value=client), patch.object(client, 'request', return_value={'tracks': {'items': []}}) as request:
+            response = make_client(api).post('/control', json={'action': 'search', 'argument': 'focus'})
+            self.assertEqual(response.status_code, 200, response.text)
+            request.assert_called_once_with('GET', '/search', params={'q': 'focus', 'type': 'track', 'limit': 10})
+
+    def test_current_library_and_playlist_request_contract(self):
+        api = load_api_module()
+        client = object.__new__(api.SpotifyClient)
+        uri = 'spotify:track:abc123'
+        with patch.object(api, 'SpotifyClient', return_value=client), patch.object(client, 'request', side_effect=[[True], {}, [False]]) as request:
+            response = make_client(api).post('/control', json={'action': 'set-saved', 'argument': json.dumps({'uri': uri, 'saved': False})})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertFalse(response.json()['saved'])
+            self.assertEqual(request.call_args_list[1].args, ('DELETE', '/me/library'))
+            self.assertEqual(request.call_args_list[1].kwargs, {'params': {'uris': uri}})
+            self.assertEqual(request.call_count, 3, 'Read back saved state after mutation')
+        with patch.object(api, 'SpotifyClient', return_value=client), patch.object(client, 'request', return_value={'items': []}) as request:
+            response = make_client(api).post('/control', json={'action': 'playlists'})
+            self.assertEqual(response.status_code, 200, response.text)
+            request.assert_called_once_with('GET', '/me/playlists', params={'limit': 30, 'offset': 0})
+        with patch.object(api, 'SpotifyClient', return_value=client), patch.object(client, 'request', return_value={'snapshot_id': 'receipt123'}) as request:
+            response = make_client(api).post('/control', json={'action': 'playlist-add', 'argument': json.dumps({'uri': uri, 'playlistId': 'abc123'})})
+            self.assertEqual(response.status_code, 200, response.text)
+            request.assert_called_once_with('POST', '/playlists/abc123/items', json_body={'uris': [uri]})
+            self.assertEqual(response.json()['snapshotId'], 'receipt123')
+
     def test_status_returns_native_spotify_snapshot(self):
         api = load_api_module()
 
@@ -75,8 +134,9 @@ class SpotifyPluginApiTests(unittest.TestCase):
         ]
 
         class Client:
-            def search(self, **kwargs):
-                self.kwargs = kwargs
+            def request(self, method, path, *, params):
+                assert (method, path) == ("GET", "/search")
+                self.kwargs = params
                 return {"tracks": {"items": tracks}}
 
         client = Client()
@@ -152,8 +212,9 @@ class SpotifyPluginApiTests(unittest.TestCase):
         api = load_api_module()
 
         class Client:
-            def library_contains(self, *, uris):
-                self.uris = uris
+            def request(self, method, path, *, params):
+                assert (method, path) == ("GET", "/me/library/contains")
+                self.uris = params["uris"].split(",")
                 return [True]
 
         client = Client()
@@ -179,16 +240,17 @@ class SpotifyPluginApiTests(unittest.TestCase):
                 self.saved_uris = []
                 self.removed_ids = []
 
-            def library_contains(self, *, uris):
-                return [self.saved]
-
-            def save_library_items(self, *, uris):
-                self.saved = True
-                self.saved_uris.extend(uris)
-
-            def remove_saved_tracks(self, *, track_ids):
-                self.saved = False
-                self.removed_ids.extend(track_ids)
+            def request(self, method, path, *, params):
+                if method == "GET":
+                    assert path == "/me/library/contains"
+                    return [self.saved]
+                assert path == "/me/library"
+                self.saved = method == "PUT"
+                if self.saved:
+                    self.saved_uris.extend(params["uris"].split(","))
+                else:
+                    self.removed_ids.extend(uri.split(":")[-1] for uri in params["uris"].split(","))
+                return {}
 
         client = Client()
         uri = "spotify:track:abc123"
@@ -233,17 +295,18 @@ class SpotifyPluginApiTests(unittest.TestCase):
             def __init__(self):
                 self.added = None
 
-            def get_my_playlists(self, *, limit, offset):
+            def request(self, method, path, *, params=None, json_body=None):
+                if method == "POST":
+                    assert path == "/playlists/playlist123/items"
+                    self.added = ("playlist123", json_body["uris"])
+                    return {"snapshot_id": "snapshot123"}
+                assert (method, path) == ("GET", "/me/playlists")
                 return {"items": [{
                     "id": "playlist123",
                     "name": "Focus",
                     "images": [{"url": "https://example.test/focus.jpg"}],
                     "items": {"total": 12},
                 }]}
-
-            def add_playlist_items(self, *, playlist_id, uris):
-                self.added = (playlist_id, uris)
-                return {"snapshot_id": "snapshot123"}
 
         client = Client()
         payload = json.dumps({

@@ -20,6 +20,7 @@ function snapshot(spotify) {
   return {
     running: true,
     state,
+    appVersion: String(safe(() => spotify.version(), '')),
     title: track ? String(safe(() => track.name(), '')) : '',
     artist: track ? String(safe(() => track.artist(), '')) : '',
     album: track ? String(safe(() => track.album(), '')) : '',
@@ -49,8 +50,14 @@ function run(argv) {
     } else if (action === 'previous') {
       spotify.previousTrack()
     } else if (action === 'volume') {
-      const nextVolume = Math.max(0, Math.min(100, Number(argv[1] || 0)))
-      spotify.soundVolume = nextVolume
+      const nextVolume = Number(argv[1])
+      if (!Number.isFinite(nextVolume) || nextVolume < 0 || nextVolume > 100) throw new Error('Invalid volume')
+      spotify.soundVolume = Math.round(nextVolume)
+    } else if (action === 'seek') {
+      const seconds = Number(argv[1])
+      if (!Number.isFinite(seconds) || seconds < 0 || seconds > 86400) throw new Error('Invalid seek position')
+      const duration = Number(safe(() => spotify.currentTrack().duration(), 0)) / 1000
+      spotify.playerPosition = duration > 0 ? Math.min(seconds, Math.max(0, duration - 0.1)) : seconds
     } else if (action === 'play-uri') {
       const uri = String(argv[1] || '')
       if (!/^spotify:(track|album|playlist|artist|episode|show):[A-Za-z0-9]+$/.test(uri)) {

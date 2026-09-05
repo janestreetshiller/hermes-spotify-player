@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "transport": "FastAPI TestClient, real plugin route + real osascript/Spotify (no native mocks)",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "spotifyVersion": "1.2.98.301",
+  "checks": [
+    "pause read-back",
+    "volume read-back within Spotify one-point quantization",
+    "seek read-back",
+    "original position/playback restored; volume restored within one point"
+  ],
+  "uncachedSnapshotSamples": 5,
+  "uncachedSnapshotMedianMs": 186.97,
+  "childCpuSecondsAcrossSamples": 0.314,
+  "maxChildRssBytesMacOS": 31457280,
+  "caveat": "Helper costs only, not total Hermes/Spotify memory or battery measurements. Search/library OAuth not configured; not live-tested."
+}

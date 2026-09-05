@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import io
 import re
 import subprocess
@@ -17,8 +18,8 @@ from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from hermes_cli.auth import (
-    DEFAULT_SPOTIFY_REDIRECT_URI,
+from hermes_cli.auth_constants import DEFAULT_SPOTIFY_REDIRECT_URI
+from hermes_cli.auth_spotify import (
     get_spotify_auth_status,
     login_spotify_command,
 )
@@ -40,6 +41,7 @@ ALLOWED_ACTIONS = {
     "next",
     "previous",
     "volume",
+    "seek",
     "play-uri",
     "search",
     "saved-status",
@@ -51,9 +53,11 @@ ALLOWED_ACTIONS = {
 TRACK_URI_RE = re.compile(r"^spotify:track:([A-Za-z0-9]+)$")
 PLAYLIST_ID_RE = re.compile(r"^[A-Za-z0-9]+$")
 LRCLIB_API_URL = "https://lrclib.net/api/get"
-LRCLIB_USER_AGENT = "HermesSpotifyPlayer/1.2.0 (https://github.com/janestreetshiller/hermes-spotify-player)"
+LRCLIB_USER_AGENT = "HermesSpotifyPlayer/1.3.0 (https://github.com/janestreetshiller/hermes-spotify-player)"
 _LYRICS_CACHE: dict[tuple[str, str, str, int], dict[str, Any]] = {}
 SPOTIFY_CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{20,128}$")
+_NATIVE_LOCK = Lock()
+_NATIVE_CACHE: dict[str, Any] = {}
 _AUTH_LOCK = Lock()
 _AUTH_FLOW: dict[str, Any] = {"phase": "idle", "message": ""}
 
@@ -294,10 +298,8 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
 
     if action == "search":
         try:
-            payload = SpotifyClient().search(
-                query=argument,
-                search_types=["track"],
-                limit=10,
+            payload = SpotifyClient().request(
+                "GET", "/search", params={"q": argument, "type": "track", "limit": 10}
             )
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Spotify search failed: {exc}") from exc
@@ -338,16 +340,15 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
             desired_saved = selection["saved"]
         else:
             uri = request.argument.strip()
-        track_id = _track_id(uri)
+        _track_id(uri)
         try:
             client = SpotifyClient()
-            saved = bool((client.library_contains(uris=[uri]) or [False])[0])
+            saved = bool((client.request("GET", "/me/library/contains", params={"uris": uri}) or [False])[0])
             if action == "set-saved" and saved != desired_saved:
-                if desired_saved:
-                    client.save_library_items(uris=[uri])
-                else:
-                    client.remove_saved_tracks(track_ids=[track_id])
-                saved = desired_saved
+                client.request("PUT" if desired_saved else "DELETE", "/me/library", params={"uris": uri})
+                saved = bool((client.request("GET", "/me/library/contains", params={"uris": uri}) or [False])[0])
+                if saved != desired_saved:
+                    raise HTTPException(status_code=502, detail="Spotify has not confirmed the saved state. Please retry.")
             return {"ok": True, "uri": uri, "saved": saved}
         except HTTPException:
             raise
@@ -356,7 +357,7 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
 
     if action == "playlists":
         try:
-            payload = SpotifyClient().get_my_playlists(limit=30, offset=0)
+            payload = SpotifyClient().request("GET", "/me/playlists", params={"limit": 30, "offset": 0})
             items = payload.get("items", []) if isinstance(payload, dict) else []
             playlists = []
             for playlist in items:
@@ -386,13 +387,36 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
         if not PLAYLIST_ID_RE.fullmatch(playlist_id):
             raise HTTPException(status_code=400, detail="A valid Spotify playlist ID is required.")
         try:
-            SpotifyClient().add_playlist_items(playlist_id=playlist_id, uris=[uri])
-            return {"ok": True, "added": True, "playlistId": playlist_id, "uri": uri}
+            receipt = SpotifyClient().request("POST", f"/playlists/{playlist_id}/items", json_body={"uris": [uri]})
+            return {"ok": True, "added": True, "playlistId": playlist_id, "uri": uri, "snapshotId": receipt.get("snapshot_id", "")}
         except Exception as exc:
             raise HTTPException(status_code=502, detail=f"Could not add track to playlist: {exc}") from exc
 
-    if action != "status":
-        _ensure_spotify_running_hidden()
+    if action in {"volume", "seek"}:
+        try:
+            number = float(argument)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="A finite number is required.") from exc
+        maximum = 100 if action == "volume" else 86400
+        if not math.isfinite(number) or not 0 <= number <= maximum:
+            raise HTTPException(status_code=400, detail=f"{action} must be between 0 and {maximum}.")
+    if action == "play-uri" and not re.fullmatch(r"spotify:(track|album|playlist|artist|episode|show):[A-Za-z0-9]+", argument):
+        raise HTTPException(status_code=400, detail="Invalid Spotify URI.")
+
+    # Coalesce requests and serialize mutations without a resident helper.
+    with _NATIVE_LOCK:
+        if action == "status" and time.monotonic() - _NATIVE_CACHE.get("at", 0) < 1:
+            return dict(_NATIVE_CACHE["payload"])
+        _NATIVE_CACHE.clear()
+        if action != "status":
+            _ensure_spotify_running_hidden()
+        payload = _native_command(action, argument)
+        if payload.get("ok"):
+            _NATIVE_CACHE.update(at=time.monotonic(), payload=payload)
+        return payload
+
+
+def _native_command(action: str, argument: str) -> dict[str, Any]:
 
     try:
         result = subprocess.run(

@@ -6,24 +6,199 @@
  * mounted.
  */
 
-import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, GlyphSpinner, Input, PALETTE_AREA, SearchField, StatusDot, Tip, atom, host, icons, useValue } from '@hermes/plugin-sdk'
+import { Button, Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, GlyphSpinner, Input, PALETTE_AREA, SearchField, StatusDot, Tip, atom, host, icons, useValue, useQuery, queryClient } from '@hermes/plugin-sdk'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
 const PLUGIN_ID = 'spotify-player'
 const POLL_MS = 4000
-const FOOTER_ROTATE_MS = 4500
+const STATUS_KEY = ['spotify-player', 'native-status']
+const $commandBusy = atom(false)
 const $searchOpen = atom(false)
 const $authOpen = atom(false)
 let pluginRest = null
+let pluginStorage = null
 let restControl = null
 
 async function runNativeSpotify(action = 'status', argument = '') {
   if (!restControl) throw new Error('Spotify plugin backend is not ready.')
 
-  const snapshot = await restControl(action, argument)
-  if (!snapshot?.ok) throw new Error(snapshot?.error || 'Spotify command failed.')
-  return snapshot
+  const nativeMutation = ['open', 'playpause', 'play', 'pause', 'next', 'previous', 'volume', 'seek', 'play-uri'].includes(action)
+  if (nativeMutation && $commandBusy.get()) throw new Error('A Spotify command is already running.')
+  if (nativeMutation) {
+    $commandBusy.set(true)
+    await queryClient.cancelQueries({ queryKey: STATUS_KEY })
+  }
+  try {
+    const snapshot = await restControl(action, argument)
+    if (!snapshot?.ok) throw new Error(snapshot?.error || 'Spotify command failed.')
+    if (nativeMutation) queryClient.setQueryData(STATUS_KEY, snapshot)
+    return snapshot
+  } finally {
+    if (nativeMutation) $commandBusy.set(false)
+  }
+}
+
+function statusInterval(player, visible, error = false) {
+  if (!visible) return false
+  if (error || (player?.state !== 'playing' && player?.state !== 'paused')) return 30000
+  return player?.state === 'playing' ? POLL_MS : 15000
+}
+
+function useDocumentVisible() {
+  const [visible, setVisible] = useState(() => !document.hidden)
+  useEffect(() => {
+    const update = () => setVisible(!document.hidden)
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
+  return visible
+}
+
+function useSurfaceVisible(ref) {
+  const documentVisible = useDocumentVisible()
+  const [intersecting, setIntersecting] = useState(true)
+  useEffect(() => {
+    const element = ref.current
+    if (!element) return undefined
+    const observer = new IntersectionObserver(entries => setIntersecting(entries[0]?.isIntersecting === true))
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [ref])
+  return documentVisible && intersecting
+}
+
+function useNativeStatus(poll = false) {
+  const visible = useDocumentVisible()
+  return useQuery({
+    queryKey: STATUS_KEY,
+    queryFn: () => runNativeSpotify('status'),
+    staleTime: POLL_MS,
+    gcTime: 60000,
+    retry: false,
+    enabled: visible,
+    // The persistent status contribution owns the only polling observer.
+    refetchInterval: query => poll ? statusInterval(query.state.data, visible, !!query.state.error) : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: poll,
+    refetchOnReconnect: poll
+  })
+}
+
+// Nokie's engaged perimeter, adapted to host tokens and finite animation.
+const PLAYER_CSS = `
+.spotify-surface{position:relative;isolation:isolate;border:1px solid transparent;border-radius:8px}
+.spotify-surface:focus-within{border-color:var(--ui-accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--ui-accent) 70%,transparent),0 0 12px color-mix(in srgb,var(--ui-accent) 26%,transparent);animation:spotify-engaged-perimeter 1.7s ease-in-out 1}
+@keyframes spotify-engaged-perimeter{50%{box-shadow:0 0 0 1px var(--ui-text-secondary),0 0 18px color-mix(in srgb,var(--ui-accent) 36%,transparent)}}
+.spotify-loader{display:inline-flex;gap:3px;align-items:center;height:18px;color:var(--ui-accent)}
+.spotify-loader i{display:block;width:3px;height:12px;background:currentColor;border-radius:2px;animation:spotify-loader-step .9s ease-in-out infinite alternate}
+.spotify-loader i:nth-child(2){animation-delay:.15s}.spotify-loader i:nth-child(3){animation-delay:.3s}
+@keyframes spotify-loader-step{from{transform:scaleY(.35);opacity:.4}to{transform:scaleY(1);opacity:1}}
+.spotify-signal{width:100%;height:40px;display:block;pointer-events:none}
+.spotify-range{width:100%;min-width:0;accent-color:var(--ui-accent)}
+.spotify-standard-top{display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 8px;align-items:center}
+.spotify-standard-top>:first-child{width:40px;height:40px}
+.spotify-standard-top>:last-child{grid-column:1/-1;justify-content:flex-end}
+.spotify-surface[data-visible=false],.spotify-surface[data-visible=false] *{animation:none!important}
+@media(prefers-reduced-motion:reduce){.spotify-surface,.spotify-loader i{animation:none!important}.spotify-surface *{scroll-behavior:auto!important}}
+`
+
+function FactoryLoader({ label = 'Loading Spotify' }) {
+  return jsx('span', { role: 'status', 'aria-label': label, className: 'spotify-loader', children: [0, 1, 2].map(i => jsx('i', { 'aria-hidden': true }, i)) })
+}
+
+function signalAllowed(enabled, visible, playing, reducedMotion) {
+  return enabled && visible && playing && !reducedMotion
+}
+
+function SignalField({ enabled, visible, playing }) {
+  const ref = useRef(null)
+  const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const [available, setAvailable] = useState(true)
+  useEffect(() => {
+    const media = matchMedia('(prefers-reduced-motion: reduce)')
+    const change = () => setReduced(media.matches)
+    media.addEventListener('change', change)
+    return () => media.removeEventListener('change', change)
+  }, [])
+  const active = signalAllowed(enabled, visible, playing, reduced) && available
+  useEffect(() => {
+    if (!active) return undefined
+    const canvas = ref.current
+    const gl = canvas.getContext('webgl', { alpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'low-power', preserveDrawingBuffer: false })
+    if (!gl) { setAvailable(false); return undefined }
+    let timer = 0
+    const shaders = []
+    const program = gl.createProgram()
+    const buffer = gl.createBuffer()
+    const release = () => {
+      clearTimeout(timer)
+      gl.deleteBuffer(buffer)
+      gl.deleteProgram(program)
+      shaders.forEach(shader => gl.deleteShader(shader))
+      gl.getExtension('WEBGL_lose_context')?.loseContext()
+    }
+    const compile = (type, source) => {
+      const shader = gl.createShader(type)
+      shaders.push(shader); gl.shaderSource(shader, source); gl.compileShader(shader)
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error('Shader unavailable')
+      gl.attachShader(program, shader)
+    }
+    try {
+      compile(gl.VERTEX_SHADER, 'attribute vec2 p; varying vec2 uv; void main(){uv=p*.5+.5;gl_Position=vec4(p,0.,1.);}')
+      compile(gl.FRAGMENT_SHADER, 'precision mediump float; varying vec2 uv; uniform float t; uniform vec3 ink; void main(){float y=.5+.18*sin(uv.x*18.-t)*sin(uv.x*3.14159);float a=(1.-smoothstep(.01,.045,abs(uv.y-y)))*.6;gl_FragColor=vec4(ink,a);}')
+      gl.linkProgram(program)
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error('Program unavailable')
+    } catch { release(); setAvailable(false); return undefined }
+    gl.useProgram(program); gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW)
+    const location = gl.getAttribLocation(program, 'p')
+    gl.enableVertexAttribArray(location); gl.vertexAttribPointer(location, 2, gl.FLOAT, false, 0, 0)
+    // Resolve the host's actual accent without assuming hex/rgb/color-space syntax.
+    const probe = document.createElement('canvas').getContext('2d')
+    probe.fillStyle = getComputedStyle(canvas).getPropertyValue('--ui-accent').trim()
+    probe.fillRect(0, 0, 1, 1)
+    const rgb = probe.getImageData(0, 0, 1, 1).data
+    gl.uniform3f(gl.getUniformLocation(program, 'ink'), rgb[0]/255, rgb[1]/255, rgb[2]/255)
+    const resize = () => {
+      canvas.width = Math.min(480, Math.max(1, Math.round(canvas.clientWidth)))
+      canvas.height = 40 // DPR 1; deliberately tiny, regardless of Retina scale.
+      gl.viewport(0, 0, canvas.width, canvas.height)
+    }
+    const observer = new ResizeObserver(resize); observer.observe(canvas); resize()
+    const time = gl.getUniformLocation(program, 't')
+    const draw = () => {
+      if (document.hidden || gl.isContextLost()) return
+      gl.uniform1f(time, performance.now()/1000)
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+      timer = setTimeout(draw, 1000/12)
+    }
+    const lost = event => { event.preventDefault(); clearTimeout(timer); setAvailable(false) }
+    canvas.addEventListener('webglcontextlost', lost)
+    draw()
+    return () => { observer.disconnect(); canvas.removeEventListener('webglcontextlost', lost); release() }
+  }, [active])
+  return active ? jsx('canvas', { ref, className: 'spotify-signal', 'aria-hidden': true }) : null
+}
+
+function NativeRange({ label, value, max, disabled, onCommit }) {
+  const [draft, setDraft] = useState(value)
+  const editing = useRef(false)
+  const sent = useRef(value)
+  useEffect(() => { if (!editing.current) { setDraft(value); sent.current = value } }, [value])
+  const commit = event => {
+    editing.current = false
+    const next = Number(event.currentTarget.value)
+    if (next === sent.current) return
+    sent.current = next
+    onCommit(String(next))
+  }
+  return jsx('input', { type: 'range', className: 'spotify-range', 'aria-label': label,
+    min: 0, max: Math.max(1, max), step: 1, value: Math.min(draft, max), disabled,
+    onChange: event => { editing.current = true; setDraft(Number(event.target.value)) },
+    onPointerUp: commit, onBlur: commit,
+    onKeyUp: event => { if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key)) commit(event) }
+  })
 }
 
 function formatTime(seconds) {
@@ -91,7 +266,7 @@ function SyncedLyrics({ durationSeconds, isPlaying, plainLyrics, positionSeconds
   const [active, setActive] = useState(activeRef.current)
 
   useEffect(() => {
-    let animationFrame = 0
+    let timer = 0
     const anchoredPosition = Math.max(0, Number(positionSeconds) || 0)
     const anchoredAt = globalThis.performance?.now?.() || Date.now()
 
@@ -104,12 +279,12 @@ function SyncedLyrics({ durationSeconds, isPlaying, plainLyrics, positionSeconds
         activeRef.current = next
         setActive(next)
       }
-      if (isPlaying) animationFrame = globalThis.requestAnimationFrame(update)
+      if (isPlaying && lines.length) timer = globalThis.setTimeout(() => update(performance.now()), 250)
     }
 
     update(anchoredAt)
     return () => {
-      if (animationFrame) globalThis.cancelAnimationFrame(animationFrame)
+      globalThis.clearTimeout(timer)
     }
   }, [durationSeconds, isPlaying, lines, positionSeconds])
 
@@ -203,34 +378,21 @@ function NativePlayer() {
   const [error, setError] = useState('')
   const [displayMode, setDisplayMode] = useState('default')
   const [activeExpandedView, setActiveExpandedView] = useState('artwork')
+  const [effects, setEffects] = useState(() => pluginStorage?.get('visualEffects') === true)
+  const toggleEffects = () => setEffects(current => { pluginStorage?.set('visualEffects', !current); return !current })
   const [lyrics, setLyrics] = useState('')
   const [syncedLyrics, setSyncedLyrics] = useState('')
   const [lyricsState, setLyricsState] = useState('idle')
   const containerRef = useRef(null)
-  const refreshingRef = useRef(false)
-
-  const refresh = async () => {
-    if (refreshingRef.current) return
-    refreshingRef.current = true
-    try {
-      const snapshot = await runNativeSpotify('status')
-      setPlayer(current => mergePlayerSnapshot(current, snapshot))
-      setError('')
-    } catch (refreshError) {
-      setError(refreshError instanceof Error ? refreshError.message : 'Could not read Spotify player state.')
-    } finally {
-      refreshingRef.current = false
-    }
-  }
+  const visible = useSurfaceVisible(containerRef)
+  const statusQuery = useNativeStatus()
+  useEffect(() => {
+    if (statusQuery.data) setPlayer(current => mergePlayerSnapshot(current, statusQuery.data))
+    setError(statusQuery.error?.message || '')
+  }, [statusQuery.data, statusQuery.error])
 
   useEffect(() => {
-    void refresh()
-    const interval = globalThis.setInterval(() => void refresh(), POLL_MS)
-    return () => globalThis.clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    if (player.state !== 'playing') return undefined
+    if (!visible || player.state !== 'playing') return undefined
     const interval = globalThis.setInterval(() => {
       setPlayer(current => {
         const nextPosition = nextTimelinePosition(current)
@@ -239,7 +401,7 @@ function NativePlayer() {
       })
     }, 1000)
     return () => globalThis.clearInterval(interval)
-  }, [player.state, player.spotifyUrl])
+  }, [player.state, player.spotifyUrl, visible])
 
   useEffect(() => {
     const element = containerRef.current
@@ -289,7 +451,7 @@ function NativePlayer() {
     setLyrics('')
     setSyncedLyrics('')
     setLyricsState('idle')
-    if (activeExpandedView !== 'lyrics' || !player.title || !player.artist || !player.durationMs) return undefined
+    if (!visible || displayMode !== 'expanded' || activeExpandedView !== 'lyrics' || !player.title || !player.artist || !player.durationMs) return undefined
     setLyricsState('loading')
     const signature = JSON.stringify({
       title: player.title,
@@ -310,7 +472,7 @@ function NativePlayer() {
     return () => {
       cancelled = true
     }
-  }, [activeExpandedView, player.title, player.artist, player.album, player.durationMs])
+  }, [visible, displayMode, activeExpandedView, player.title, player.artist, player.album, player.durationMs])
 
   const toggleSaved = async () => {
     const uri = player.spotifyUrl || ''
@@ -335,10 +497,10 @@ function NativePlayer() {
     }
   }
 
-  const act = async action => {
+  const act = async (action, argument = '') => {
     setBusy(true)
     try {
-      const snapshot = await runNativeSpotify(action)
+      const snapshot = await runNativeSpotify(action, argument)
       setPlayer(snapshot)
       setError('')
     } catch (actionError) {
@@ -369,8 +531,10 @@ function NativePlayer() {
   if (displayMode === 'compact') {
     return jsxs('section', {
       ref: containerRef,
-      className: 'flex h-full min-h-0 items-center gap-1.5 overflow-hidden px-2 py-1',
+      'data-visible': visible,
+      className: 'spotify-surface flex h-full min-h-0 items-center gap-1.5 overflow-hidden px-2 py-1',
       children: [
+        jsx('style', { children: PLAYER_CSS }),
         jsxs('div', {
           className: 'min-w-0 flex-1',
           children: [
@@ -436,8 +600,10 @@ function NativePlayer() {
 
     return jsxs('section', {
       ref: containerRef,
-      className: 'flex h-full min-h-0 flex-col overflow-hidden p-2',
+      'data-visible': visible,
+      className: 'spotify-surface flex h-full min-h-0 flex-col overflow-hidden p-2',
       children: [
+        jsx('style', { children: PLAYER_CSS }),
         jsxs('div', {
           'aria-label': 'Expanded player view',
           className: 'mb-2 flex shrink-0 items-center gap-1 rounded-full bg-(--ui-bg-secondary) p-0.5',
@@ -462,9 +628,11 @@ function NativePlayer() {
               type: 'button',
               variant: activeExpandedView === 'lyrics' ? 'secondary' : 'ghost',
               children: 'Lyrics'
-            })
+            }),
+            jsx(Button, { 'aria-label': effects ? 'Disable visual effects' : 'Enable visual effects', 'aria-pressed': effects, onClick: toggleEffects, variant: 'ghost', size: 'xs', children: effects ? 'FX on' : 'FX off' })
           ]
         }),
+        jsx(SignalField, { enabled: effects, visible, playing: isPlaying }),
         activeExpandedView === 'artwork'
           ? player.artworkUrl
             ? jsx('img', {
@@ -479,12 +647,12 @@ function NativePlayer() {
           : lyricsState === 'loading'
             ? jsx('div', {
                 className: 'flex min-h-0 flex-1 items-center justify-center',
-                children: jsx(GlyphSpinner, { ariaLabel: 'Loading lyrics', size: 'md' })
+                children: jsx(FactoryLoader, { label: 'Loading lyrics' })
               })
             : lyricsState === 'ready' && syncedLyrics
               ? jsx(SyncedLyrics, {
                   durationSeconds,
-                  isPlaying,
+                  isPlaying: isPlaying && visible,
                   plainLyrics: lyrics,
                   positionSeconds: player.positionSeconds,
                   syncedLyrics
@@ -527,10 +695,7 @@ function NativePlayer() {
           className: 'mt-1 flex shrink-0 items-center gap-1.5 text-[0.625rem] text-(--ui-text-quaternary)',
           children: [
             jsx('span', { className: 'w-7 tabular-nums', children: formatTime(player.positionSeconds) }),
-            jsx('div', {
-              className: 'h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-(--ui-stroke-secondary)',
-              children: jsx('div', { className: 'h-full rounded-full bg-(--ui-accent)', style: { width: `${progress}%` } })
-            }),
+            jsx(NativeRange, { label: 'Seek Spotify', value: Number(player.positionSeconds || 0), max: durationSeconds, disabled: busy || !durationSeconds, onCommit: value => void act('seek', value) }),
             jsx('span', { className: 'w-7 text-right tabular-nums', children: formatTime(durationSeconds) })
           ]
         }),
@@ -542,6 +707,7 @@ function NativePlayer() {
             jsx(Button, { 'aria-label': 'Next track', disabled: busy || !player.running, onClick: () => void act('next'), size: 'icon-sm', type: 'button', variant: 'ghost', children: jsx(icons.ChevronRight, {}) })
           ]
         }),
+        jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) }),
         jsx(SpotifyPlaylistDialog, { open: playlistOpen, onOpenChange: setPlaylistOpen, track: player })
       ]
     })
@@ -549,10 +715,12 @@ function NativePlayer() {
 
   return jsxs('section', {
     ref: containerRef,
-    className: 'h-full min-h-0 overflow-hidden px-2 py-2',
+    'data-visible': visible,
+    className: 'spotify-surface h-full min-h-0 overflow-hidden px-2 py-2',
     children: [
+      jsx('style', { children: PLAYER_CSS }),
       jsxs('div', {
-        className: 'flex min-w-0 items-center gap-2',
+        className: 'spotify-standard-top',
         children: [
           player.artworkUrl
             ? jsx('img', {
@@ -671,16 +839,11 @@ function NativePlayer() {
         className: 'mt-1.5 flex items-center gap-1.5 text-[0.625rem] text-(--ui-text-quaternary)',
         children: [
           jsx('span', { className: 'w-7', children: formatTime(player.positionSeconds) }),
-          jsx('div', {
-            className: 'h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-(--ui-stroke-secondary)',
-            children: jsx('div', {
-              className: 'h-full rounded-full bg-(--ui-accent)',
-              style: { width: `${progress}%` }
-            })
-          }),
+          jsx(NativeRange, { label: 'Seek Spotify', value: Number(player.positionSeconds || 0), max: durationSeconds, disabled: busy || !durationSeconds, onCommit: value => void act('seek', value) }),
           jsx('span', { className: 'w-7 text-right', children: formatTime(durationSeconds) })
         ]
       }),
+      jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) }),
       jsx(SpotifyPlaylistDialog, {
         open: playlistOpen,
         onOpenChange: setPlaylistOpen,
@@ -1021,44 +1184,16 @@ function SpotifyAuthDialog() {
 }
 
 function SpotifyStatusBar() {
-  const [player, setPlayer] = useState({ running: false, state: 'loading' })
-  const [showArtist, setShowArtist] = useState(false)
-  const [error, setError] = useState('')
-  const refreshingRef = useRef(false)
-
-  const refresh = async () => {
-    if (refreshingRef.current) return
-    refreshingRef.current = true
-    try {
-      setPlayer(await runNativeSpotify('status'))
-      setError('')
-    } catch (refreshError) {
-      setError(refreshError instanceof Error ? refreshError.message : 'Spotify unavailable')
-    } finally {
-      refreshingRef.current = false
-    }
-  }
-
-  useEffect(() => {
-    void refresh()
-    const interval = globalThis.setInterval(() => void refresh(), POLL_MS)
-    return () => globalThis.clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    setShowArtist(false)
-    if (!player.title || !player.artist || player.title === player.artist) return undefined
-    const interval = globalThis.setInterval(() => setShowArtist(current => !current), FOOTER_ROTATE_MS)
-    return () => globalThis.clearInterval(interval)
-  }, [player.title, player.artist])
+  const statusQuery = useNativeStatus(true)
+  const player = statusQuery.data || { running: false, state: 'loading' }
+  const error = statusQuery.error?.message || ''
+  const commandBusy = useValue($commandBusy)
 
   const toggle = async () => {
     try {
-      setPlayer(await runNativeSpotify('playpause'))
-      setError('')
+      await runNativeSpotify('playpause')
     } catch (actionError) {
       const message = actionError instanceof Error ? actionError.message : 'Spotify command failed.'
-      setError(message)
       host.notify({ kind: 'error', message })
     }
   }
@@ -1066,7 +1201,7 @@ function SpotifyStatusBar() {
   const isPlaying = player.state === 'playing'
   const primaryLabel = error ? 'Spotify unavailable' : player.title || (player.running ? 'Spotify' : 'Open Spotify')
   const secondaryLabel = error ? primaryLabel : player.artist || primaryLabel
-  const label = showArtist ? secondaryLabel : primaryLabel
+  const label = primaryLabel
 
   return jsxs('div', {
     className: 'flex min-w-0 items-center gap-1.5',
@@ -1104,6 +1239,7 @@ function SpotifyStatusBar() {
         children: jsx(Button, {
           'aria-label': isPlaying ? 'Pause Spotify' : 'Play Spotify',
           onClick: () => void toggle(),
+          disabled: commandBusy,
           size: 'icon-sm',
           type: 'button',
           variant: 'ghost',
@@ -1261,6 +1397,7 @@ export default {
   name: 'Spotify Player',
   defaultEnabled: true,
   register(ctx) {
+    pluginStorage = ctx.storage
     pluginRest = (path, options) => ctx.rest(path, options)
     restControl = (action, argument) =>
       ctx.rest('/control', {

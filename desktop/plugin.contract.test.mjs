@@ -57,7 +57,7 @@ test('uses a stable viewport and hysteresis so resize jitter cannot strobe modes
   assert.equal(selectMode('expanded', 243), 'default')
   assert.match(text, /const viewport = element\.parentElement/)
   assert.match(text, /observer\.observe\(viewport\)/)
-  assert.doesNotMatch(text, /observer\.observe\(element\)/)
+  assert.doesNotMatch(text.slice(text.indexOf("function NativePlayer()"), text.indexOf("function SpotifyPlaylistDialog")), /observer\.observe\(element\)/)
 })
 
 test('keeps one persistent player state while the side pocket crosses size thresholds', async () => {
@@ -77,8 +77,8 @@ test('keeps a compact Spotify control visible when the right rail is closed', as
   assert.match(text, /function SpotifyStatusBar\(\)/)
   assert.match(text, /id:\s*'persistent-status'/)
   assert.match(text, /area:\s*'statusBar\.right'/)
-  assert.match(text, /showArtist\s*\?\s*secondaryLabel\s*:\s*primaryLabel/)
-  assert.match(text, /FOOTER_ROTATE_MS/)
+  assert.doesNotMatch(text, /FOOTER_ROTATE_MS|setShowArtist/)
+  assert.match(text, /useNativeStatus\(true\)/)
   assert.match(text, /aria-label':\s*isPlaying\s*\?\s*'Pause Spotify'\s*:\s*'Play Spotify'/)
   assert.match(text, /defaultEnabled:\s*true/)
 })
@@ -134,7 +134,7 @@ test('reconciles small polling drift without skipping or rewinding the displayed
   assert.equal(merge(current, { ...current, positionSeconds: 111.4 }).positionSeconds, 112)
   assert.equal(merge(current, { ...current, positionSeconds: 130 }).positionSeconds, 130)
   assert.equal(merge(current, { ...current, spotifyUrl: 'spotify:track:b', positionSeconds: 5 }).positionSeconds, 5)
-  assert.match(text, /setPlayer\(current => mergePlayerSnapshot\(current, snapshot\)\)/)
+  assert.match(text, /mergePlayerSnapshot\(current, statusQuery\.data\)/)
 })
 
 test('provides subtle like and add-to-playlist controls for the current track', async () => {

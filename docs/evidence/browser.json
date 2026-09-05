@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "statusCallsIn4800ms": 2,
+  "webglDrawsIn1100ms": 13,
+  "webglBuffer": {
+    "width": 350,
+    "height": 40
+  },
+  "hiddenStatusCallsIn4500ms": 0,
+  "errors": [],
+  "checks": [
+    "shared polling",
+    "synchronized controls",
+    "opt-in WebGL",
+    "reduced motion",
+    "responsive resize",
+    "mobile overflow",
+    "offscreen GPU cleanup",
+    "seek commit",
+    "document visibility stop",
+    "WebGL frame/buffer budget"
+  ]
+}

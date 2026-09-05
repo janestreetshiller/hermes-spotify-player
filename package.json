@@ -1,0 +1,24 @@
+{
+  "name": "hermes-spotify-player-dev",
+  "version": "1.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bash scripts/test.sh",
+    "demo:build": "node scripts/build-demo.mjs",
+    "test:browser": "node scripts/browser-test.mjs",
+    "demo:media": "node scripts/render-media.mjs",
+    "test:native": "python scripts/native-smoke.py"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.101.2",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "esbuild": "0.25.9",
+    "playwright": "1.58.2",
+    "@tailwindcss/cli": "4.1.12",
+    "tailwindcss": "4.1.12",
+    "nanostores": "1.2.0",
+    "@nanostores/react": "1.1.0"
+  }
+}

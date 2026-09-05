@@ -20,4 +20,4 @@ fi
 ln -sfn "$SOURCE" "$DEST/plugin.js"
 
 printf '%s\n' "Desktop plugin linked: $DEST/plugin.js"
-printf '%s\n' 'Restart the Hermes gateway, then use Cmd+K → Reload desktop plugins.'
+printf '%s\n' 'Reopen Hermes Desktop to mount new backend routes; Cmd+K → Reload desktop plugins refreshes UI only.'
