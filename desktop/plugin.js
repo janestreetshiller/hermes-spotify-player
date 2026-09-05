@@ -797,35 +797,48 @@ function useNativeStatus(poll = false) {
 
 // Nokie's engaged perimeter, adapted to host tokens and finite animation.
 const PLAYER_CSS = `
-.spotify-surface{position:relative;isolation:isolate;border:1px solid transparent;border-radius:8px}
-.spotify-surface:focus-within{border-color:var(--ui-accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--ui-accent) 70%,transparent),0 0 12px color-mix(in srgb,var(--ui-accent) 26%,transparent);animation:spotify-engaged-perimeter 1.7s ease-in-out 1}
-@keyframes spotify-engaged-perimeter{50%{box-shadow:0 0 0 1px var(--ui-text-secondary),0 0 18px color-mix(in srgb,var(--ui-accent) 36%,transparent)}}
-.spotify-loader{display:inline-flex;gap:3px;align-items:center;height:18px;color:var(--ui-accent)}
+.spotify-surface{--chrome-edge:color-mix(in srgb,var(--ui-text-secondary) 30%,var(--ui-bg-secondary));--chrome-light:color-mix(in srgb,var(--ui-text-primary) 22%,transparent);position:relative;isolation:isolate;box-sizing:border-box;border:1px solid var(--chrome-edge);border-radius:7px;background:linear-gradient(125deg,color-mix(in srgb,var(--ui-text-secondary) 12%,transparent),transparent 38%),repeating-linear-gradient(0deg,transparent 0 2px,color-mix(in srgb,var(--ui-text-primary) 2%,transparent) 2px 3px),var(--ui-bg-secondary);box-shadow:inset 0 1px var(--chrome-light),inset 0 -1px color-mix(in srgb,var(--ui-stroke-secondary) 70%,transparent);color:var(--ui-text-primary)}
+.spotify-surface[data-mode=compact]{max-height:76px}
+.spotify-surface[data-mode=default]{max-height:136px}
+.spotify-surface[data-mode=expanded]{max-height:280px}
+.spotify-surface:focus-within{border-color:color-mix(in srgb,var(--ui-accent) 45%,var(--chrome-edge));animation:spotify-engaged-perimeter 1.7s ease-in-out 1}
+@keyframes spotify-engaged-perimeter{50%{box-shadow:inset 0 1px var(--chrome-light),0 0 8px color-mix(in srgb,var(--ui-accent) 16%,transparent)}}
+.spotify-surface button{min-height:28px;height:28px;min-width:28px;border-radius:4px;color:var(--ui-text-secondary);background:transparent;box-shadow:none}
+.spotify-surface button:hover:not(:disabled){color:var(--ui-text-primary);background:color-mix(in srgb,var(--ui-text-secondary) 12%,transparent)}
+.spotify-surface button:focus-visible,.spotify-range:focus-visible{outline:2px solid var(--ui-accent);outline-offset:1px}
+.spotify-surface button:disabled{opacity:.4}
+.spotify-surface.spotify-surface button[aria-label="Play Spotify"],.spotify-surface.spotify-surface button[aria-label="Pause Spotify"]{color:var(--ui-text-primary);border:1px solid var(--chrome-edge);background:linear-gradient(165deg,color-mix(in srgb,var(--ui-text-primary) 27%,var(--ui-bg-secondary)),var(--ui-bg-secondary) 75%);box-shadow:inset 0 1px var(--chrome-light);border-radius:50%}
+.spotify-surface img{border:1px solid var(--chrome-edge);box-shadow:0 1px 0 var(--chrome-light);filter:none}
+.spotify-view-tabs{display:flex;align-items:center;gap:4px;flex-shrink:0;height:28px;margin-bottom:6px;border-bottom:1px solid var(--chrome-edge)}
+.spotify-view-tabs button{font-size:11px;font-weight:500;border-radius:0;padding:0 8px;background:transparent;color:var(--ui-text-tertiary)}
+.spotify-view-tabs button[aria-selected=true]{color:var(--ui-text-primary);box-shadow:inset 0 -1px var(--ui-text-secondary)}
+.spotify-view-tabs button:last-child{margin-left:auto;font-size:10px}
+.spotify-artwork{display:block;min-height:0;max-height:128px;width:100%;flex:1;object-fit:cover;border-radius:4px}
+.spotify-controls{display:flex;align-items:center;gap:4px;margin-top:4px;flex-shrink:0;border-top:1px solid var(--chrome-edge);padding-top:3px}
+.spotify-metal-control{position:relative;display:inline-flex;flex-shrink:0}
+.spotify-metal{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:50%}
+.spotify-metal canvas{display:block;width:100%;height:100%}
+.spotify-volume{display:flex;align-items:center;gap:6px;margin-left:auto;width:92px;min-width:64px;font-size:9px;color:var(--ui-text-tertiary)}
+.spotify-volume .spotify-range{flex:1;width:0;height:18px;margin:0}
+.spotify-range{appearance:none;-webkit-appearance:none;width:100%;min-width:0;height:18px;margin:0;background:transparent;cursor:pointer}
+.spotify-range::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:linear-gradient(to right,var(--ui-text-secondary) 0 var(--range-fill),var(--ui-stroke-secondary) var(--range-fill) 100%);box-shadow:0 1px color-mix(in srgb,var(--ui-text-primary) 12%,transparent)}
+.spotify-range::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;margin-top:-3px;border-radius:50%;border:1px solid var(--chrome-edge);background:linear-gradient(var(--ui-text-primary),var(--ui-text-secondary));box-shadow:0 1px 2px var(--ui-stroke-secondary)}
+.spotify-range::-moz-range-track{height:3px;border-radius:2px;background:var(--ui-stroke-secondary)}
+.spotify-range::-moz-range-progress{height:3px;background:var(--ui-text-secondary)}
+.spotify-range::-moz-range-thumb{width:9px;height:9px;border-radius:50%;border:1px solid var(--chrome-edge);background:var(--ui-text-primary)}
+.spotify-range:disabled{opacity:.4;cursor:default}
+.spotify-standard-top{display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 8px;align-items:center}
+.spotify-standard-top>:first-child{width:40px;height:40px}
+.spotify-standard-top>:last-child{grid-column:1/-1;justify-content:space-between;border-top:1px solid var(--chrome-edge);padding-top:2px}
+.spotify-standard-fx{font-size:9px!important;padding:0!important}
+.spotify-loader{display:inline-flex;gap:3px;align-items:center;height:18px;color:var(--ui-text-secondary)}
 .spotify-loader i{display:block;width:3px;height:12px;background:currentColor;border-radius:2px;animation:spotify-loader-step .9s ease-in-out infinite alternate}
 .spotify-loader i:nth-child(2){animation-delay:.15s}.spotify-loader i:nth-child(3){animation-delay:.3s}
 @keyframes spotify-loader-step{from{transform:scaleY(.35);opacity:.4}to{transform:scaleY(1);opacity:1}}
-
-.spotify-range{width:100%;min-width:0;accent-color:var(--ui-accent)}
-.spotify-surface button{min-height:28px;height:28px;min-width:28px}
-.spotify-view-tabs{display:flex;align-items:center;gap:4px;flex-shrink:0;height:28px;margin-bottom:6px;border-bottom:1px solid var(--ui-stroke-secondary)}
-.spotify-view-tabs button{font-size:11px;font-weight:500;border-radius:0;padding:0 8px;background:transparent;color:var(--ui-text-tertiary)}
-.spotify-view-tabs button[aria-selected=true]{color:var(--ui-text-primary);box-shadow:inset 0 -2px var(--ui-accent)}
-.spotify-view-tabs button:last-child{margin-left:auto}
-.spotify-artwork{display:block;min-height:0;max-height:192px;width:100%;flex:1;object-fit:cover;border-radius:5px}
-.spotify-controls{display:flex;align-items:center;gap:4px;margin-top:4px;flex-shrink:0}
-.spotify-metal-control{position:relative;display:inline-flex;flex-shrink:0}
-.spotify-metal-control>button{border-radius:50%}
-.spotify-metal{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:50%}
-.spotify-metal canvas{display:block;width:100%;height:100%}
-.spotify-volume{display:flex;align-items:center;gap:6px;margin-left:auto;width:108px;min-width:64px;font-size:10px;color:var(--ui-text-tertiary)}
-.spotify-volume .spotify-range{flex:1;width:0;height:18px;margin:0}
-
-.spotify-standard-top{display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 8px;align-items:center}
-.spotify-standard-top>:first-child{width:40px;height:40px}
-.spotify-standard-top>:last-child{grid-column:1/-1;justify-content:flex-end}
 .spotify-surface[data-visible=false],.spotify-surface[data-visible=false] *{animation:none!important}
 @media(prefers-reduced-motion:reduce){.spotify-surface,.spotify-loader i{animation:none!important}.spotify-surface *{scroll-behavior:auto!important}}
 `
+
 
 function FactoryLoader({ label = 'Loading Spotify' }) {
   return jsx('span', { role: 'status', 'aria-label': label, className: 'spotify-loader', children: [0, 1, 2].map(i => jsx('i', { 'aria-hidden': true }, i)) })
@@ -889,6 +902,7 @@ function NativeRange({ label, value, max, disabled, onCommit }) {
   }
   return jsx('input', { type: 'range', className: 'spotify-range', 'aria-label': label,
     min: 0, max: Math.max(1, max), step: 1, value: Math.min(draft, max), disabled,
+    style: { '--range-fill': `${Math.max(0, Math.min(100, draft / Math.max(1, max) * 100))}%` },
     onChange: event => { editing.current = true; setDraft(Number(event.target.value)) },
     onPointerUp: commit, onBlur: commit,
     onKeyUp: event => { if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key)) commit(event) }
@@ -1226,6 +1240,7 @@ function NativePlayer() {
     return jsxs('section', {
       ref: containerRef,
       'data-visible': visible,
+      'data-mode': displayMode,
       className: 'spotify-surface flex h-full min-h-0 items-center gap-1.5 overflow-hidden px-2 py-1',
       children: [
         jsx('style', { children: PLAYER_CSS }),
@@ -1295,6 +1310,7 @@ function NativePlayer() {
     return jsxs('section', {
       ref: containerRef,
       'data-visible': visible,
+      'data-mode': displayMode,
       className: 'spotify-surface flex h-full min-h-0 flex-col overflow-hidden p-2',
       children: [
         jsx('style', { children: PLAYER_CSS }),
@@ -1412,6 +1428,7 @@ function NativePlayer() {
   return jsxs('section', {
     ref: containerRef,
     'data-visible': visible,
+      'data-mode': displayMode,
     className: 'spotify-surface h-full min-h-0 overflow-hidden px-2 py-2',
     children: [
       jsx('style', { children: PLAYER_CSS }),
@@ -1506,14 +1523,14 @@ function NativePlayer() {
               }),
               jsx(Tip, {
                 label: isPlaying ? 'Pause' : 'Play',
-                children: jsx(Button, {
+                children: jsxs('span', { className: 'spotify-metal-control', children: [jsx(Button, {
                   'aria-label': isPlaying ? 'Pause Spotify' : 'Play Spotify',
                   disabled: busy,
                   onClick: () => void act('playpause'),
                   size: 'icon-sm',
                   type: 'button',
                   children: jsx(isPlaying ? icons.Pause : icons.Play, {})
-                })
+                }), jsx(MetalArtifact, { enabled: effects, visible, playing: isPlaying })] })
               }),
               jsx(Tip, {
                 label: 'Next track',
@@ -1526,7 +1543,8 @@ function NativePlayer() {
                   variant: 'ghost',
                   children: jsx(icons.ChevronRight, {})
                 })
-              })
+              }),
+              jsx(Button, { className: 'spotify-standard-fx', 'aria-label': effects ? 'Disable visual effects' : 'Enable visual effects', 'aria-pressed': effects, onClick: toggleEffects, variant: 'ghost', size: 'icon-sm', children: 'FX' })
             ]
           })
         ]

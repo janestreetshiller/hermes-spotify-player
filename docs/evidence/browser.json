@@ -1,9 +1,9 @@
 {
   "status": "passed",
   "statusCallsIn4800ms": 2,
-  "webglDrawsIn1100ms": 12,
+  "webglDrawsIn1100ms": 11,
   "webglBuffer": {
-    "width": 30,
+    "width": 32,
     "height": 28
   },
   "artifact": "metal-fx@1.0.4",

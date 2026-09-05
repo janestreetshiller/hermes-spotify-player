@@ -32,10 +32,10 @@ Keep the music beside the work.`,syncedLyrics:`[00:00.00] An original demo lyric
 }
 plugin.register({register:c=>contributions.push(c),rest:fixture,storage:{get:()=>false,set:()=>{}},os:{openExternal:url=>window.open(url,'_blank','noopener')}})
 const pane=contributions.find(c=>c.area==='panes'), status=contributions.find(c=>c.area==='statusBar.right')
-function App(){const [size,setSize]=useState(320),[shown,setShown]=useState(true); return <QueryClientProvider client={queryClient}>
+function App(){const [size,setSize]=useState(280),[shown,setShown]=useState(true); return <QueryClientProvider client={queryClient}>
  <main className="composition"><header className="brand"><span>Hermes <b>×</b> Spotify</span><span className="edition">PLAYER / 1.3</span></header>
  <div className="hero"><div className="copy"><h1>Keep the music.<br/><em>Lose the switching.</em></h1><p>Native Spotify controls, beside your work.<br/>Less switching. More listening.</p><div className="features"><span>Native macOS</span><span>No web player</span><span>Effects optional</span></div><a href="https://github.com/janestreetshiller/hermes-spotify-player">View the source ↗</a></div>
  <div className="product"><div className="window-bar"><span>● ● ●</span><strong>Spotify / Hermes pane</strong></div>{shown&&<div id="player-pane" style={{height:size}}>{pane.render()}</div>}<div className="status-bar">{status.render()}</div></div></div>
- <footer><div className="demo-controls"><button onClick={()=>setSize(76)}>Compact</button><button onClick={()=>setSize(136)}>Standard</button><button onClick={()=>setSize(320)}>Expanded</button><button onClick={()=>setShown(!shown)}>{shown?'Hide pane':'Show pane'}</button></div><p>Interactive UI demo · simulated playback · original artwork<br/>The installed plugin controls the real Spotify app. This page does not.</p></footer><p id="notice" role="status"/></main>
+ <footer><div className="demo-controls"><button onClick={()=>setSize(76)}>Compact</button><button onClick={()=>setSize(136)}>Standard</button><button onClick={()=>setSize(280)}>Expanded</button><button onClick={()=>setShown(!shown)}>{shown?'Hide pane':'Show pane'}</button></div><p>Interactive UI demo · simulated playback · original artwork<br/>The installed plugin controls the real Spotify app. This page does not.</p></footer><p id="notice" role="status"/></main>
  </QueryClientProvider>}
 createRoot(document.querySelector('#root')).render(<App/> )
