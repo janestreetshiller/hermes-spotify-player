@@ -37,4 +37,4 @@ Alt text: “Good work. Great music. Hermes Spotify Player poster on cream paper
 
 Rebuild from the repository root with `npm run poster:render`. The renderer uses local assets and checks image decoding, page errors, bounds and content separation. Typography uses Impact when installed (macOS render); other systems may use the declared fallback. Committed PNGs are the canonical exports.
 
-Publication status: assets and copy included in the repository and PR. Not posted to any social account; no destination/account was specified. The feature branch must be merged/deployed before the default-branch Pages site contains this update.
+Publication status: assets and copy included in the repository and PR. Not posted to any social account; no destination/account was specified. GitHub Pages is already configured to publish `/docs` from `feat/low-resource-nokie-player`; the live social image and demo HTML were fetched and matched these committed files.

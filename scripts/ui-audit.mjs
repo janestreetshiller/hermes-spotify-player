@@ -73,7 +73,14 @@ await check('Settings and taste palette controls: persistence, curation, prompt 
  await writeFile('docs/evidence/ui-audit/control-inventory.json',JSON.stringify(inventory,null,2));await shell(p).screenshot({path:'docs/evidence/ui-audit/account-screen.png'})
 })
 await check('Failed slider commands restore confirmed values and show an in-player error',async p=>{
- await scenario(p,'volume',{error:'Volume control unavailable'});const v=shell(p).getByRole('slider',{name:'Spotify volume'});await v.focus();await v.press('Home');await p.waitForTimeout(300);assert.equal(await v.inputValue(),'45','failed commands must not leave optimistic volume');await shell(p).getByRole('alert').getByText('Volume control unavailable',{exact:true}).waitFor()
+ const v=shell(p).getByRole('slider',{name:'Spotify volume'});
+ // The fixture intentionally exceeds the former 300ms sleep. Await the
+ // response/error and confirmed rollback, not a machine-dependent deadline.
+ await scenario(p,'volume',{error:'Volume control unavailable',delay:750});
+ await v.focus();await v.press('Home');
+ await shell(p).getByRole('alert').getByText('Volume control unavailable',{exact:true}).waitFor();
+ await p.waitForFunction(()=>document.querySelector('.spotify-surface input[aria-label="Spotify volume"]')?.value==='45',null,{timeout:5000});
+ assert.equal(await v.inputValue(),'45','failed commands must not leave optimistic volume');
 })
 await check('Playlist and search errors are not falsely reported as empty results',async p=>{
  await scenario(p,'playlists',{error:'Playlist service unavailable'});await button(p,'Add current track to playlist').click();await shell(p).getByText('Playlist service unavailable',{exact:true}).waitFor();assert.equal(await shell(p).getByText('No playlists found.',{exact:true}).count(),0);await button(p,'Close screen panel').click()
