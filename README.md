@@ -14,7 +14,7 @@ It keeps playback inside the desktop workflow without embedding Spotify's Widevi
 - Play/pause, previous, next, seek, and volume controls
 - One shared status cache: 4s playing / 15s paused / 30s stopped or error; no hidden-window status polling
 - Nokie-inspired finite focus glow and CSS-only Web Design Factory-style loading bars
-- Opt-in decorative WebGL: 12fps cap, 480×40 maximum buffer, DPR 1; released when paused, hidden, offscreen, reduced-motion, or collapsed
+- Opt-in **Alloy / metal-fx@1.0.4** silver ring on play/pause, from the linked Artifact Library: actual upstream shader/renderer, 12fps cap, 96×96 shared GPU buffer, DPR 1; released when paused, hidden, offscreen, reduced-motion, or collapsed
 - Search and play tracks from the command palette
 - Like/unlike the current track
 - Add the current track to a playlist

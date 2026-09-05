@@ -6,9 +6,14 @@
 - `npm run demo:build && npm run test:browser`: Chromium ran the actual production UI against explicitly simulated demo fixtures. No page errors; compact/default/expanded, lyrics, synchronized pane/footer controls, seek commit, 390px layout, and legible track titles at a real 234px Hermes sidebar width checked. The narrow-sidebar failure was reproduced first, then fixed by putting controls on their own grid row.
 - Shared polling: **2 status calls over 4.8 seconds** (initial + one poll), even with pane and footer mounted.
 - Hidden-document event test: **0 new status requests over 4.5 seconds** after a settling window. Visibility state is injected in this browser test, not an OS battery measurement.
-- Optional WebGL: **13 draws over 1.1 seconds**, buffer **350×40**; max configured 480×40, DPR 1. No canvas by default. Reduced-motion/offscreen/compact paths release it. Software SwiftShader used in headless CI; not a hardware GPU benchmark.
+- Optional WebGL: actual **Alloy / metal-fx@1.0.4**, silver/dark. Last browser run: **11 draws over 1.1 seconds**; **96×96 maximum shared GPU buffer**, **30×28 output ring**, DPR 1. Exact upstream fragment-shader equality and visible painted pixels asserted. Reduced-motion/pause/offscreen/background release the artifact; offscreen/background produce no further draws. No-WebGL fallback preserves playback controls. Software SwiftShader used in headless tests; not a hardware GPU benchmark.
 - `npm audit --audit-level=high`: **0 vulnerabilities**, including demo dependencies.
 - `npm run demo:media`: generated a silent MP4 and 1200×675 PNG from real UI. Inspected final visual output; no clipping.
+
+## Artifact correction
+- Removed the custom `SignalField` shader rather than presenting it as a library artifact.
+- Copied the original MIT-licensed `metal-fx@1.0.4` source from the supplied library’s pinned installation; checksum and deterministic embed checked by the test suite.
+- `media/player-1.3-metal-fx.png` shows the real shader-rendered metallic transport rim. Demo playback is simulated; live Hermes connection status below remains separate.
 
 ## UI density refinement
 - Default pane reduced to 136px; demo expanded view reduced to 320px.

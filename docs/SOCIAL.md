@@ -4,7 +4,7 @@
 
 Spotify, inside Hermes. No second web player.
 
-Player 1.3 adds native seek + volume, shared polling that stops when hidden, Nokie glow and opt-in WebGL.
+Player 1.3 adds native seek + volume, shared polling that stops when hidden, a theme-aware focus glow and an opt-in metallic play/pause ring.
 
 Try the interactive demo:
 https://janestreetshiller.github.io/hermes-spotify-player/demo/
@@ -15,7 +15,7 @@ Keep the music. Lose the switching.
 
 Hermes Spotify Player 1.3 controls the Spotify macOS app from a resizable Hermes pane and compact status bar. Play/pause, skip, seek and adjust volume without opening another web player.
 
-This update replaces duplicate status polling with a shared cache, backs off when paused or stopped, and stops status polling when Hermes is hidden. Lyrics only tick while visible. Nokie's focus glow is adapted to Hermes theme colors, with a small CSS loader and an optional 12fps WebGL signal. Effects are off by default and respect reduced motion.
+This update replaces duplicate status polling with a shared cache, backs off when paused or stopped, and stops status polling when Hermes is hidden. Lyrics only tick while visible. The focus glow follows Hermes theme colors. An optional 12fps metallic play/pause ring uses the actual Alloy (`metal-fx@1.0.4`) shader from the Artifact Library; the small loading indicator remains CSS. Effects are off by default and respect reduced motion.
 
 Updated for Spotify 1.2.98.301 and the current Hermes plugin SDK. Spotify search/library/playlist features need your own PKCE connection. macOS only; not affiliated with Spotify.
 

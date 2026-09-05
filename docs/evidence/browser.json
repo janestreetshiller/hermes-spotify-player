@@ -1,11 +1,18 @@
 {
   "status": "passed",
   "statusCallsIn4800ms": 2,
-  "webglDrawsIn1100ms": 13,
+  "webglDrawsIn1100ms": 11,
   "webglBuffer": {
-    "width": 350,
-    "height": 40
+    "width": 30,
+    "height": 28
   },
+  "artifact": "metal-fx@1.0.4",
+  "preset": "silver/dark",
+  "shaderExactMatch": true,
+  "webglSharedBufferMax": [
+    96,
+    96
+  ],
   "hiddenStatusCallsIn4500ms": 0,
   "errors": [],
   "checks": [
@@ -18,6 +25,11 @@
     "offscreen GPU cleanup",
     "seek commit",
     "document visibility stop",
-    "WebGL frame/buffer budget"
+    "WebGL frame/buffer budget",
+    "exact metal-fx shader provenance",
+    "painted ring pixels",
+    "pause/offscreen/background GPU stop",
+    "stable transport DOM",
+    "no-WebGL fallback"
   ]
 }
