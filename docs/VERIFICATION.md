@@ -1,5 +1,23 @@
 # Verification — Player 1.3
 
+> Current visual contract: [Retro Player](RETRO-PLAYER.md). The compact/standard/expanded visual notes below describe the superseded design, not the current fixed-ratio faceplate.
+
+## Current UI audit
+
+See [UI audit](UI-AUDIT.md) for the current control-by-control results and limits. The latest run passed 15 JavaScript tests, 25 Python tests, the browser regression suite, and 16 targeted UI audits. The real installed Hermes Play/Pause buttons were verified against Spotify read-back; native seek/volume/restoration also passed. Screen navigation is now on the top chrome; search, playlists, and account setup are embedded; effects are default treatment. **Spotify account authorization is still missing; live library/search/playlist verification is not complete. Direct EQ remains unimplemented.**
+
+## Previous two-mode/curation revision (historical)
+
+- `npm test`: 19 JavaScript and 25 Python tests passed, plus temporary-profile installer checks.
+- `npm run test:browser`: builds fresh production UI first; passed mode persistence, exact header-aware fit, narrow/wide resizes, 27 geometry combinations, visualizer lifecycle and curation form tests. Demo/backend responses are simulated.
+- `hermes plugins doctor spotify-player`: discovers one tool, `spotify_player_curate`; the manifest declares it.
+- Default-profile links resolve to the edited worktree. No other profile was modified.
+- Live Web API read failed with `SpotifyAuthRequiredError`; auth is not connected. No playlist or library writes were attempted against the real account.
+- Current live screenshot capture is blocked by ScreenCaptureKit/screencapture failures. AX metadata is visible, but the latest real-window auto-fit toggle is not newly verified.
+- New Python routes need a safe desktop restart; this session did not restart the active app. Read [Curation](CURATION.md) before live verification.
+
+## Earlier verification record (historical, not current readiness)
+
 ## Executed locally
 - `bash scripts/test.sh`: **19 JavaScript tests, 19 Python tests passed**, Python compilation and macOS temporary-home install/uninstall passed.
 - `hermes plugins doctor spotify-player`: manifest, runtime discovery, import and registration passed. No tools/hooks registered or overridden.

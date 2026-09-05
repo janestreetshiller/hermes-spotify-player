@@ -3,3 +3,5 @@ version: 1.3.0
 description: Native macOS Spotify controls, search, library actions, playlists, and synced lyrics for Hermes Desktop.
 author: Jane Street Shiller / Heavyweights
 kind: backend
+provides_tools:
+  - spotify_player_curate

@@ -2,7 +2,7 @@
 
 A native Spotify side pocket for [Hermes Desktop](https://hermes-agent.nousresearch.com/docs/user-guide/desktop) on macOS.
 
-![Hermes Spotify Player 1.3 — actual UI with simulated demo playback](docs/media/player-1.3-social.png)
+![Good work. Great music. — poster using user-created retro-computer concept art](docs/media/retro-social.png)
 
 [Interactive demo](https://janestreetshiller.github.io/hermes-spotify-player/demo/) · [Demo video](docs/media/player-1.3-demo.mp4) · [Verification](docs/VERIFICATION.md) · [Social copy](docs/SOCIAL.md)
 
@@ -10,14 +10,18 @@ It keeps playback inside the desktop workflow without embedding Spotify's Widevi
 
 ## Features
 
-- Resizable now-playing pane with artwork and progress
+- One-click **screen-on / screen-off**, each auto-fitted to its scaled shell and host header
+- Three persistent finishes: Classic chrome, Ice blue, and Graphite; text-only settings that fit without scrolling
+- Artwork, themed lyrics, or an XP-style ambient visualizer inside the display
 - Play/pause, previous, next, seek, and volume controls
 - One shared status cache: 4s playing / 15s paused / 30s stopped or error; no hidden-window status polling
 - Nokie-inspired finite focus glow and CSS-only Web Design Factory-style loading bars
-- Opt-in **Alloy / metal-fx@1.0.4** silver ring on play/pause, from the linked Artifact Library: actual upstream shader/renderer, 12fps cap, 96×96 shared GPU buffer, DPR 1; released when paused, hidden, offscreen, reduced-motion, or collapsed
-- Search and play tracks from the command palette
-- Like/unlike the current track
+- Default **Alloy / metal-fx@1.0.4** silver ring on play/pause, from the linked Artifact Library: actual upstream shader/renderer, 12fps cap, 96×96 shared GPU buffer, DPR 1; released when paused, hidden, offscreen, reduced-motion, or collapsed
+- Search and play tracks inside the screen or from the command palette
+- Like/unlike the current track, with automatic liked-state lookup and distinct loading/disconnected indicators
 - Add the current track to a playlist
+- **Taste palette** side control: private playlist creation, batch like/unlike, recent-liked taste sample, and an editable LLM prompt
+- `spotify_player_curate`: single-call creation from exact song names or track URIs, verified reads after writes, and retry protection ([usage](docs/CURATION.md))
 - Synced lyrics when LRCLIB has a match
 - Compact status-bar controller when the pane is closed
 - Native Hermes components and theme variables
@@ -39,7 +43,7 @@ hermes plugins install janestreetshiller/hermes-spotify-player --enable
 ~/.hermes/plugins/spotify-player/scripts/install-desktop.sh
 ```
 
-Then **quit and reopen Hermes Desktop after saving active work** so its own `hermes serve` backend mounts the newly installed routes. Restarting the messaging gateway alone does not refresh an already-running Desktop backend. Open **Settings → Plugins** and enable **Spotify Player** if its saved desktop toggle is off. Run **Cmd+K → Reload desktop plugins** for subsequent JavaScript-only edits. The player appears below the Sessions pane. You can drag or resize it like any other pane.
+Then **quit and reopen Hermes Desktop after saving active work** so its own `hermes serve` backend mounts the newly installed routes. Restarting the messaging gateway alone does not refresh an already-running Desktop backend. Open **Settings → Plugins** and enable **Spotify Player** if its saved desktop toggle is off. Run **Cmd+K → Reload desktop plugins** for subsequent JavaScript-only edits. The player appears below the Sessions pane. You can move it like any other pane; the screen toggle automatically fits its vertical allocation, and width changes uniformly scale the shell.
 
 Hermes deliberately separates Python gateway plugins from native desktop UI plugins. The first command installs and enables the scoped backend. The script links `desktop/plugin.js` into `$HERMES_HOME/desktop-plugins/spotify-player/` so Hermes Desktop can hot-load it.
 
@@ -99,6 +103,7 @@ npx playwright install chromium
 npm run demo:build
 npm run test:browser
 npm run demo:media  # needs ffmpeg
+npm run poster:render  # portrait + landscape from the supplied base image
 # Opt-in: briefly changes and restores native playback
 npm run test:native
 ```

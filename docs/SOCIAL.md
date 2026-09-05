@@ -1,35 +1,40 @@
-# Spotify Player 1.3 — ready-to-publish package
+# Retro Player 1.3 — social package
+
+![Good work. Great music.](media/retro-social.png)
 
 ## Short post
 
-Spotify, inside Hermes. No second web player.
+Good work. Great music.
 
-Player 1.3 adds native seek + volume, shared polling that stops when hidden, a theme-aware focus glow and an opt-in metallic play/pause ring.
+A little nostalgia for your agent desktop. Hermes Spotify Player brings native playback controls, lyrics and a chrome faceplate into Hermes on macOS. Buttons on the shell. Menus in the screen.
 
-Try the interactive demo:
-https://janestreetshiller.github.io/hermes-spotify-player/demo/
+Open source: https://github.com/janestreetshiller/hermes-spotify-player
 
-## Longer post / release caption
+## Longer caption
 
-Keep the music. Lose the switching.
+Spotify, inside Hermes.
 
-Hermes Spotify Player 1.3 controls the Spotify macOS app from a resizable Hermes pane and compact status bar. Play/pause, skip, seek and adjust volume without opening another web player.
+A retro silver player beside your work: play/pause, skip, seek and volume; artwork, lyrics and an ambient visualizer; search and playlist panels inside the display. Default chrome feedback, compact text-only settings, and a heart that checks each song automatically instead of guessing its liked state.
 
-This update replaces duplicate status polling with a shared cache, backs off when paused or stopped, and stops status polling when Hermes is hidden. Lyrics only tick while visible. The focus glow follows Hermes theme colors. An optional 12fps metallic play/pause ring uses the actual Alloy (`metal-fx@1.0.4`) shader from the Artifact Library; the small loading indicator remains CSS. Effects are off by default and respect reduced motion.
-
-Updated for Spotify 1.2.98.301 and the current Hermes plugin SDK. Spotify search/library/playlist features need your own PKCE connection. macOS only; not affiliated with Spotify.
+Local playback controls the Spotify macOS app—no embedded web player. Search, likes and playlists require separate Spotify PKCE authorization and applicable account/app access. The live account-dependent flows still await verification; automated integration tests use controlled responses. The visualizer is decorative, not audio-reactive.
 
 Code: https://github.com/janestreetshiller/hermes-spotify-player
 Demo: https://janestreetshiller.github.io/hermes-spotify-player/demo/
 
-## Media
-- `media/player-1.3-social.png` — 1200×675 card.
-- `media/player-1.3-demo.mp4` — silent real-UI interaction recording; simulated playback.
-- `media/social-1.3.html` — editable composition source.
-- `media/player-1.3-product.png` — screenshot of the production plugin rendered through a demo SDK adapter.
+Independent open-source plugin. Not affiliated with Spotify.
 
-Alt text: “Hermes × Spotify. Keep the music. Lose the switching. A dark, gold-accented native-style player with generated ribbon artwork, playback controls, lyrics tabs and effects off.”
+## Artwork and exports
 
-Artwork is AI-generated; player UI is real code. Demo track/lyrics are fixtures, not a Spotify session or music recording. Do not claim CPU/battery percentage savings or live OAuth validation.
+- [Portrait poster](media/retro-poster.png): 1080×1350, 4:5 feed/poster layout.
+- [Landscape social card](media/retro-social.png): 1200×630, link-sharing layout.
+- [Editable HTML composition](media/retro-poster.html).
+- [Original user-supplied base](media/retro-poster-base.png), preserved byte-for-byte.
+- [Current UI demo video](media/player-1.3-demo.mp4): silent recording of production UI through the demo adapter, with simulated playback.
 
-Publication status: prepared, not posted to any social account. No destination/account was confirmed.
+The supplied base is the user's retro Compaq desk artwork. It is **concept art**, not proof of supported hardware or a live Spotify session. No product controls were generated or replaced in the artwork. Cream paper, condensed type, orange ink and a subtle print texture frame the original image; the computer scene is not cropped.
+
+Alt text: “Good work. Great music. Hermes Spotify Player poster on cream paper with orange and black condensed lettering. A Compaq CRT shows Hermes and a silver player, surrounded by beige speakers, a computer and a keyboard on a warm wooden desk.”
+
+Rebuild from the repository root with `npm run poster:render`. The renderer uses local assets and checks image decoding, page errors, bounds and content separation. Typography uses Impact when installed (macOS render); other systems may use the declared fallback. Committed PNGs are the canonical exports.
+
+Publication status: assets and copy included in the repository and PR. Not posted to any social account; no destination/account was specified. The feature branch must be merged/deployed before the default-branch Pages site contains this update.

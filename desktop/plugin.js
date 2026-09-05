@@ -724,11 +724,34 @@ const PLUGIN_ID = 'spotify-player'
 const POLL_MS = 4000
 const STATUS_KEY = ['spotify-player', 'native-status']
 const $commandBusy = atom(false)
+const $panePolling = atom(false)
 const $searchOpen = atom(false)
 const $authOpen = atom(false)
+const $libraryRevision = atom(0)
 let pluginRest = null
 let pluginStorage = null
 let restControl = null
+let openExternal = null
+let registerPlayerPane = null
+let registeredPaneMode = null
+const renderPlayerPane = () => jsx(SpotifyRightRail, {})
+
+function updatePlayerPane(mode, scale = 1, chromeHeight = 0) {
+  const height = `${Math.ceil((mode === 'off' ? 112 : 280) * scale + chromeHeight)}px`
+  const signature = `${mode}:${height}`
+  if (!registerPlayerPane || registeredPaneMode === signature) return
+  registeredPaneMode = signature
+  // Update the existing contribution, never remove/re-dock it. A max clamp
+  // also releases a tall height override left by an earlier sash drag.
+  registerPlayerPane({
+    id: 'native-side-pocket', area: 'panes', title: 'Spotify',
+    data: { placement: 'left', collapsible: true,
+      dock: { pane: 'sessions', pos: 'bottom' },
+      height, minHeight: height, maxHeight: height
+    },
+    render: renderPlayerPane
+  })
+}
 
 async function runNativeSpotify(action = 'status', argument = '') {
   if (!restControl) throw new Error('Spotify plugin backend is not ready.')
@@ -778,6 +801,11 @@ function useSurfaceVisible(ref) {
   return documentVisible && intersecting
 }
 
+function useSpotifyAuth(open = false) {
+  const visible = useDocumentVisible()
+  return useQuery({queryKey:['spotify-player','auth-status'],queryFn:()=>pluginRest('/auth/status',{method:'GET'}),enabled:visible,staleTime:30000,retry:false,refetchInterval:open&&visible?3000:false,refetchIntervalInBackground:false})
+}
+
 function useNativeStatus(poll = false) {
   const visible = useDocumentVisible()
   return useQuery({
@@ -795,50 +823,157 @@ function useNativeStatus(poll = false) {
   })
 }
 
-// Nokie's engaged perimeter, adapted to host tokens and finite animation.
+// Embedded host chrome with finite focus feedback; no nested card surface.
 const PLAYER_CSS = `
-.spotify-surface{--chrome-edge:color-mix(in srgb,var(--ui-text-secondary) 30%,var(--ui-bg-secondary));--chrome-light:color-mix(in srgb,var(--ui-text-primary) 22%,transparent);position:relative;isolation:isolate;box-sizing:border-box;border:1px solid var(--chrome-edge);border-radius:7px;background:linear-gradient(125deg,color-mix(in srgb,var(--ui-text-secondary) 12%,transparent),transparent 38%),repeating-linear-gradient(0deg,transparent 0 2px,color-mix(in srgb,var(--ui-text-primary) 2%,transparent) 2px 3px),var(--ui-bg-secondary);box-shadow:inset 0 1px var(--chrome-light),inset 0 -1px color-mix(in srgb,var(--ui-stroke-secondary) 70%,transparent);color:var(--ui-text-primary)}
-.spotify-surface[data-mode=compact]{max-height:76px}
-.spotify-surface[data-mode=default]{max-height:136px}
-.spotify-surface[data-mode=expanded]{max-height:280px}
-.spotify-surface:focus-within{border-color:color-mix(in srgb,var(--ui-accent) 45%,var(--chrome-edge));animation:spotify-engaged-perimeter 1.7s ease-in-out 1}
-@keyframes spotify-engaged-perimeter{50%{box-shadow:inset 0 1px var(--chrome-light),0 0 8px color-mix(in srgb,var(--ui-accent) 16%,transparent)}}
-.spotify-surface button{min-height:28px;height:28px;min-width:28px;border-radius:4px;color:var(--ui-text-secondary);background:transparent;box-shadow:none}
-.spotify-surface button:hover:not(:disabled){color:var(--ui-text-primary);background:color-mix(in srgb,var(--ui-text-secondary) 12%,transparent)}
-.spotify-surface button:focus-visible,.spotify-range:focus-visible{outline:2px solid var(--ui-accent);outline-offset:1px}
-.spotify-surface button:disabled{opacity:.4}
-.spotify-surface.spotify-surface button[aria-label="Play Spotify"],.spotify-surface.spotify-surface button[aria-label="Pause Spotify"]{color:var(--ui-text-primary);border:1px solid var(--chrome-edge);background:linear-gradient(165deg,color-mix(in srgb,var(--ui-text-primary) 27%,var(--ui-bg-secondary)),var(--ui-bg-secondary) 75%);box-shadow:inset 0 1px var(--chrome-light);border-radius:50%}
-.spotify-surface img{border:1px solid var(--chrome-edge);box-shadow:0 1px 0 var(--chrome-light);filter:none}
-.spotify-view-tabs{display:flex;align-items:center;gap:4px;flex-shrink:0;height:28px;margin-bottom:6px;border-bottom:1px solid var(--chrome-edge)}
-.spotify-view-tabs button{font-size:11px;font-weight:500;border-radius:0;padding:0 8px;background:transparent;color:var(--ui-text-tertiary)}
-.spotify-view-tabs button[aria-selected=true]{color:var(--ui-text-primary);box-shadow:inset 0 -1px var(--ui-text-secondary)}
-.spotify-view-tabs button:last-child{margin-left:auto;font-size:10px}
-.spotify-artwork{display:block;min-height:0;max-height:128px;width:100%;flex:1;object-fit:cover;border-radius:4px}
-.spotify-controls{display:flex;align-items:center;gap:4px;margin-top:4px;flex-shrink:0;border-top:1px solid var(--chrome-edge);padding-top:3px}
-.spotify-metal-control{position:relative;display:inline-flex;flex-shrink:0}
+/* Reference-driven silver/blue/green hardware skin; intentionally not theme-tinted. */
+.spotify-surface{position:relative;isolation:isolate;box-sizing:border-box;width:100%;min-width:0;color:#163e53;background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20320%20280%22%20preserveAspectRatio%3D%22xMidYMid%20meet%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22metal%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23f8ffff%22%2F%3E%3Cstop%20offset%3D%22.13%22%20stop-color%3D%22%238d9da6%22%2F%3E%3Cstop%20offset%3D%22.3%22%20stop-color%3D%22%23e1ebed%22%2F%3E%3Cstop%20offset%3D%22.54%22%20stop-color%3D%22%23fbffff%22%2F%3E%3Cstop%20offset%3D%22.7%22%20stop-color%3D%22%23a6b5bb%22%2F%3E%3Cstop%20offset%3D%22.87%22%20stop-color%3D%22%23dbe4e5%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2355666e%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22edge%22%20x2%3D%220%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23dce7e9%22%2F%3E%3Cstop%20offset%3D%22.35%22%20stop-color%3D%22%2352616b%22%2F%3E%3Cstop%20offset%3D%22.72%22%20stop-color%3D%22%23d9e4e7%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23253741%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M50%209%20Q160%20-1%20270%209%20Q289%2011%20291%2032%20L307%20157%20Q319%20172%20312%20207%20L303%20232%20Q296%20252%20275%20252%20L139%20253%20Q121%20253%20109%20265%20Q94%20279%2065%20277%20Q30%20276%2024%20243%20L10%20192%20Q4%20172%2015%20155%20L29%2033%20Q32%2012%2050%209Z%22%20fill%3D%22url%28%23metal%29%22%20stroke%3D%22%2325343e%22%20stroke-width%3D%223%22%2F%3E%3Cpath%20d%3D%22M50%2012%20Q160%202%20269%2012%20Q285%2014%20288%2033%20L304%20158%20Q315%20172%20309%20206%20L300%20231%20Q293%20249%20275%20249%20L139%20250%20Q120%20250%20106%20263%20Q91%20276%2065%20274%20Q33%20273%2027%20242%20L13%20191%20Q8%20172%2018%20156%20L32%2034%20Q35%2015%2050%2012Z%22%20fill%3D%22none%22%20stroke%3D%22url%28%23edge%29%22%20stroke-width%3D%223%22%2F%3E%3C%2Fsvg%3E") center/100% 100% no-repeat;border:0;box-shadow:none;overflow:hidden;font-family:inherit}
+.spotify-retro-viewport{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;overflow:auto}
+.spotify-retro-stage{position:relative;margin:auto auto 0;flex-shrink:0}
+.spotify-surface[data-skin=retro-chrome]{position:absolute;left:0;top:0;width:320px;height:280px;aspect-ratio:8/7;transform-origin:top left;display:grid;grid-template-rows:minmax(0,1fr) 60px;gap:7px;padding:17px 10px 23px}
+.spotify-surface button{box-sizing:border-box;min-height:28px;height:28px;min-width:28px;width:28px;padding:0;flex-shrink:0;border:1px solid #738995;border-radius:50%;color:#285d7a;background:radial-gradient(ellipse at 35% 17%,#fff 0%,#e9f8ff 28%,#acc4d2 58%,#6f8fa2 82%,#c4d1d5 100%);box-shadow:inset 0 1px 1px #fff,0 0 0 2px #bac7ca,0 2px 2px #62747c;font-size:10px;line-height:1;transition:filter .12s}
+.spotify-surface button:hover:not(:disabled){filter:brightness(1.12)}
+.spotify-surface button:active:not(:disabled){box-shadow:inset 0 2px 3px #58768a,0 0 0 2px #cad5d8}
+.spotify-surface button:focus-visible,.spotify-range:focus-visible{outline:2px solid #0879b9;outline-offset:2px}
+.spotify-surface button:disabled{opacity:.45}
+.spotify-surface button svg{width:14px;height:14px}
+.spotify-surface button[aria-pressed=true],.spotify-surface button[aria-selected=true]{color:#064571;background:radial-gradient(ellipse at 35% 17%,#fff,#a7e5ff 48%,#3995cf 83%,#c9f0ff)}
+.spotify-surface.spotify-surface button[aria-label="Play Spotify"],.spotify-surface.spotify-surface button[aria-label="Pause Spotify"]{border:1px solid #4d829e;color:#07619b;background:radial-gradient(ellipse at 34% 19%,#fff 0%,#eaf9ff 23%,#9ddcff 45%,#22a2ef 69%,#0968aa 88%,#5ebbe6 100%);box-shadow:inset 0 1px 2px #fff,0 0 0 3px #ecf6f8,0 0 0 4px #79939f,0 2px 4px #425b6a;border-radius:50%}
+.spotify-upper{display:grid;grid-template-columns:28px minmax(0,1fr) 28px;gap:5px;min-height:0}
+.spotify-side-controls{display:flex;flex-direction:column;justify-content:flex-end;gap:7px;padding-bottom:8px;min-height:0}
+.spotify-display{display:flex;flex-direction:column;min-width:0;min-height:0;border:2px solid #627d8b;border-radius:24px 24px 13px 13px;overflow:hidden;background:#183b45;box-shadow:0 1px 1px #f8ffff,inset 0 2px 5px #112c39}
+.spotify-screen{min-height:0;flex:1;position:relative;overflow:hidden;display:flex;background:linear-gradient(145deg,#183f54,#081c2c)}
+.spotify-screen::after{content:'';pointer-events:none;position:absolute;inset:0;background:linear-gradient(135deg,#ffffff25,transparent 45%);box-shadow:inset 0 0 9px #05192780;border-radius:20px 20px 0 0}
+.spotify-artwork{display:block;min-height:0;max-height:none;width:100%;height:100%;object-fit:cover;border:0;border-radius:0;box-shadow:none}
+.spotify-lcd{box-sizing:border-box;min-width:0;flex-shrink:0;padding:4px 6px;background:linear-gradient(100deg,#94ba87,#c7d9b3 58%,#a4c496);color:#194c1a;box-shadow:inset 0 1px 3px #385b4660;text-shadow:0 1px #e0efbd70;font-family:'Lucida Console',Monaco,monospace}
+.spotify-title{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:16px;font-weight:600}
+.spotify-meta{display:flex;min-width:0;align-items:baseline;gap:4px;font-size:9px;line-height:13px}
+.spotify-artist{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spotify-time{flex-shrink:0;font-variant-numeric:tabular-nums;font-size:9px;white-space:nowrap}
+.spotify-standard-copy{min-width:0;flex:1}
+.spotify-transport{display:grid;grid-template-columns:50px minmax(0,1fr);grid-template-rows:19px minmax(0,1fr);column-gap:9px;min-height:0;align-items:center;padding:0 6px}
+.spotify-metal-control{position:relative;display:inline-flex;flex-shrink:0;grid-row:1/3;align-self:center;justify-self:center}
+.spotify-transport .spotify-metal-control::before{content:'';position:absolute;inset:-6px;border:1px solid #748b96;border-radius:50%;background:conic-gradient(#faffff,#8a9fa9,#e8f7fc,#fff,#93a9b5,#faffff);box-shadow:inset 0 1px 2px #fff,0 2px 2px #506b7d;z-index:-1}
+.spotify-transport .spotify-metal-control button{width:42px;height:42px;min-width:42px}
+.spotify-transport .spotify-metal-control button svg{width:20px;height:20px}
 .spotify-metal{position:absolute;inset:0;pointer-events:none;overflow:hidden;border-radius:50%}
 .spotify-metal canvas{display:block;width:100%;height:100%}
-.spotify-volume{display:flex;align-items:center;gap:6px;margin-left:auto;width:92px;min-width:64px;font-size:9px;color:var(--ui-text-tertiary)}
-.spotify-volume .spotify-range{flex:1;width:0;height:18px;margin:0}
-.spotify-range{appearance:none;-webkit-appearance:none;width:100%;min-width:0;height:18px;margin:0;background:transparent;cursor:pointer}
-.spotify-range::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:linear-gradient(to right,var(--ui-text-secondary) 0 var(--range-fill),var(--ui-stroke-secondary) var(--range-fill) 100%);box-shadow:0 1px color-mix(in srgb,var(--ui-text-primary) 12%,transparent)}
-.spotify-range::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;margin-top:-3px;border-radius:50%;border:1px solid var(--chrome-edge);background:linear-gradient(var(--ui-text-primary),var(--ui-text-secondary));box-shadow:0 1px 2px var(--ui-stroke-secondary)}
-.spotify-range::-moz-range-track{height:3px;border-radius:2px;background:var(--ui-stroke-secondary)}
-.spotify-range::-moz-range-progress{height:3px;background:var(--ui-text-secondary)}
-.spotify-range::-moz-range-thumb{width:9px;height:9px;border-radius:50%;border:1px solid var(--chrome-edge);background:var(--ui-text-primary)}
+.spotify-seek{min-width:0;display:flex;align-items:center}
+.spotify-controls{display:flex;align-items:center;gap:7px;min-width:0}
+.spotify-controls>button{height:26px;min-height:26px;width:30px;min-width:30px;border-radius:12px}
+.spotify-volume{max-width:108px;margin-left:auto;display:flex;align-items:center;gap:4px;min-width:0;flex:1;border:1px solid #a0afb4;border-radius:12px;padding:0 4px;background:#dfe7e7;box-shadow:inset 0 1px 2px #839ba4;color:#3b7493}
+.spotify-volume>span{font-size:10px;flex-shrink:0}
+.spotify-volume .spotify-range{flex:1;width:0;min-width:0;height:22px}
+.spotify-range{appearance:none;-webkit-appearance:none;width:100%;min-width:0;height:19px;margin:0;background:transparent;cursor:pointer}
+.spotify-range::-webkit-slider-runnable-track{height:7px;border:1px solid #527857;border-radius:8px;background:linear-gradient(to right,#268331 0 var(--range-fill),#b7dec5 var(--range-fill) 100%);box-shadow:inset 0 1px 2px #ffffffba,0 1px #fff}
+.spotify-range::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;margin-top:-3px;border-radius:50%;border:1px solid #57735c;background:radial-gradient(circle at 35% 25%,#efffe9,#71b989 65%,#26743d);box-shadow:0 1px 2px #395b42}
+.spotify-volume .spotify-range::-webkit-slider-runnable-track{height:4px;border:1px solid #8b9b9f;background:#a5b4b5;box-shadow:inset 0 1px #60787d,0 1px #fff}
+.spotify-volume .spotify-range::-webkit-slider-thumb{width:13px;height:13px;margin-top:-5px;border:1px solid #668495;background:radial-gradient(circle at 30% 25%,#fff,#d6edf8 25%,#7294aa 65%,#2d536d);box-shadow:0 1px 2px #3c505c}
+.spotify-range::-moz-range-track{height:6px;border-radius:8px;background:#b7dec5}
+.spotify-range::-moz-range-progress{height:6px;background:#268331}
+.spotify-range::-moz-range-thumb{width:10px;height:10px;border-radius:50%;border:1px solid #57735c;background:#d4eee1}
 .spotify-range:disabled{opacity:.4;cursor:default}
-.spotify-standard-top{display:grid;grid-template-columns:40px minmax(0,1fr);gap:4px 8px;align-items:center}
-.spotify-standard-top>:first-child{width:40px;height:40px}
-.spotify-standard-top>:last-child{grid-column:1/-1;justify-content:space-between;border-top:1px solid var(--chrome-edge);padding-top:2px}
-.spotify-standard-fx{font-size:9px!important;padding:0!important}
-.spotify-loader{display:inline-flex;gap:3px;align-items:center;height:18px;color:var(--ui-text-secondary)}
+.spotify-screen .spotify-loader{margin:auto}
+.spotify-empty-screen{display:flex;align-items:center;justify-content:center;flex:1;color:#b6d6e3}
+.spotify-lyrics-message{padding:6px;overflow-y:auto;min-height:0;color:#dcf5db;font-size:11px;text-align:center;white-space:pre-line;flex:1}
+.spotify-loader{display:inline-flex;gap:3px;align-items:center;height:18px;color:#c8e9df}
 .spotify-loader i{display:block;width:3px;height:12px;background:currentColor;border-radius:2px;animation:spotify-loader-step .9s ease-in-out infinite alternate}
 .spotify-loader i:nth-child(2){animation-delay:.15s}.spotify-loader i:nth-child(3){animation-delay:.3s}
 @keyframes spotify-loader-step{from{transform:scaleY(.35);opacity:.4}to{transform:scaleY(1);opacity:1}}
 .spotify-surface[data-visible=false],.spotify-surface[data-visible=false] *{animation:none!important}
-@media(prefers-reduced-motion:reduce){.spotify-surface,.spotify-loader i{animation:none!important}.spotify-surface *{scroll-behavior:auto!important}}
-`
+@media(prefers-reduced-motion:reduce){.spotify-surface,.spotify-loader i{animation:none!important}.spotify-surface *{scroll-behavior:auto!important;transition:none!important}}
+/* Two physical shells; all fixtures are inset from the drawn silhouette. */
+.spotify-surface[data-skin=retro-chrome]{display:block;padding:0}
+.spotify-surface{--lcd-a:#94ba87;--lcd-b:#c7d9b3;--lcd-ink:#194c1a;--glass:#091e2f;--lyric:#dcf5db;--lyric-active:#f7ffe5}
+.spotify-surface[data-finish=ice]{--lcd-a:#95c5d6;--lcd-b:#d5edf3;--lcd-ink:#174566;--glass:#0a263f;--lyric:#c9eaff;--lyric-active:#fff}
+.spotify-surface[data-finish=graphite]{--lcd-a:#657976;--lcd-b:#a9b7a6;--lcd-ink:#102d28;--glass:#111c24;--lyric:#b9cec0;--lyric-active:#fff}
+.spotify-surface[data-finish=ice] .spotify-display{border-color:#6188aa}
+.spotify-surface[data-finish=graphite] button{background:radial-gradient(ellipse at 35% 17%,#f4fbff,#b1c1cb 40%,#667782 75%,#c6d5dc)}
+.spotify-upper{position:absolute;left:28px;right:28px;top:40px;height:155px;grid-template-columns:30px minmax(0,1fr) 30px;gap:5px}
+.spotify-side-controls{padding-bottom:8px;gap:8px}
+.spotify-display{border-radius:21px 21px 10px 10px;position:relative}
+.spotify-screen{background:var(--glass)}
+.spotify-lcd{background:linear-gradient(100deg,var(--lcd-a),var(--lcd-b) 58%,var(--lcd-a));color:var(--lcd-ink)}
+.spotify-view-tabs{position:absolute;left:33px;right:33px;top:-29px;display:flex;justify-content:center;gap:4px;height:24px;align-items:center;background:transparent;box-shadow:none}
+.spotify-view-tabs button{width:56px;min-width:56px;height:24px;min-height:24px;border-radius:8px;font-size:11px;font-weight:600;letter-spacing:.1px;color:#173c51;box-shadow:inset 0 1px #fff,0 1px 1px #4e6577}
+.spotify-side-controls button{color:#173c51;width:30px;min-width:30px;height:30px;min-height:30px}
+.spotify-side-controls button svg,.spotify-off-actions button svg{width:18px;height:18px}
+.spotify-side-controls button:disabled{opacity:.65}
+.spotify-view-tabs button[aria-selected=true]{box-shadow:inset 0 1px 2px #fff,inset 0 -2px 3px #1c83af66,0 1px 1px #4e6577}
+.spotify-transport{position:absolute;left:34px;right:24px;top:200px;height:48px;padding:0;grid-template-rows:18px 30px;column-gap:9px}
+.spotify-surface button{border:2px solid #69818f;box-shadow:inset 0 1px 1px #fff,inset 0 -2px 2px #43627880,0 0 0 1px #f7ffff,0 0 0 3px #96a8b2,0 2px 3px #354c5e;transition:filter .1s}
+.spotify-surface button:focus-visible,.spotify-range:focus-visible{outline-offset:-3px}
+.spotify-surface button[aria-busy=true]{filter:saturate(.25);cursor:progress}
+.spotify-taste{width:100%;min-width:0;height:100%;box-sizing:border-box;overflow:auto;display:flex;flex-direction:column;gap:3px;padding:6px;color:#c9e5aa;background:linear-gradient(#111916,#192b24);font:10px Tahoma,sans-serif}
+.spotify-taste strong{font-size:11px}.spotify-taste input,.spotify-taste textarea{box-sizing:border-box;min-height:20px;width:100%;border:1px solid #809590;border-radius:3px;background:#111e19;color:#e1f2c9;padding:3px;font:10px Tahoma,sans-serif}.spotify-taste textarea{min-height:40px;resize:none;flex:1}.spotify-taste-actions{display:flex;gap:3px}.spotify-taste button{flex:1;min-height:22px;border:1px solid #89979e;border-radius:4px;background:linear-gradient(#fafcfc,#9aa8b0 48%,#607785 52%,#dbe5e9);box-shadow:inset 0 0 0 1px #d9e6eb;color:#14212b;font:9px Tahoma,sans-serif;padding:2px}.spotify-taste button:disabled{opacity:.5}.spotify-taste p{margin:0;line-height:1.25;overflow-wrap:anywhere}.spotify-taste a{color:#a6d5ff}.spotify-taste :focus-visible{outline:2px solid #86c7ed;outline-offset:-2px}
+.spotify-settings{box-sizing:border-box;position:relative;z-index:1;flex:1;min-width:0;min-height:0;overflow:hidden;padding:9px 12px;color:var(--lyric);font:11px/1.3 Tahoma,sans-serif;display:flex;flex-direction:column;gap:5px}
+.spotify-settings header{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;line-height:15px}
+.spotify-settings fieldset{border:0;min-width:0;padding:0;margin:0}
+.spotify-settings legend{padding:0;font-size:10px;opacity:.65;line-height:13px}
+.spotify-settings-account{display:flex;justify-content:space-between;gap:6px;align-items:center;min-height:22px;color:inherit;text-decoration:none;white-space:nowrap}
+.spotify-settings-account:hover{text-decoration:underline;text-underline-offset:3px}
+.spotify-settings-account:focus-visible{outline:1px solid currentColor;outline-offset:1px}
+.spotify-heart-view{position:relative;display:inline-flex}
+.spotify-heart-view [data-like-indicator]{position:absolute;z-index:2;right:-3px;bottom:-2px;min-width:9px;height:10px;line-height:10px;text-align:center;border-radius:2px;background:#173c51;color:#fff;font:700 9px/10px Tahoma,sans-serif}
+.spotify-surface button[data-liked-state=liked] svg{color:#a31b50}
 
+.spotify-surface[data-screen=off]{height:112px;aspect-ratio:20/7;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20320%20112%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22m%22%20x2%3D%22.15%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23fff%22%2F%3E%3Cstop%20offset%3D%22.16%22%20stop-color%3D%22%23bbc7ce%22%2F%3E%3Cstop%20offset%3D%22.46%22%20stop-color%3D%22%23f9ffff%22%2F%3E%3Cstop%20offset%3D%22.65%22%20stop-color%3D%22%23dce4e7%22%2F%3E%3Cstop%20offset%3D%22.87%22%20stop-color%3D%22%23a0afb8%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23eff7fb%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M52%204C73%204%2076%2012%2096%2012H287Q314%2012%20314%2037V74Q314%20101%20287%20101H99C76%20101%2076%20109%2052%20109A52%2052%200%200%201%2052%204Z%22%20fill%3D%22url%28%23m%29%22%20stroke%3D%22%23516776%22%20stroke-width%3D%222%22%2F%3E%3Cpath%20d%3D%22M52%207C73%207%2076%2015%2096%2015H287Q311%2015%20311%2037V74Q311%2098%20287%2098H99C76%2098%2076%20106%2052%20106A49%2049%200%200%201%2052%207Z%22%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%221.5%22%2F%3E%3C%2Fsvg%3E")}
+.spotify-off-header>.spotify-lcd{position:absolute;left:85px;top:20px;width:181px;height:36px;border:1px solid #688879;border-radius:10px;padding:2px 6px}
+.spotify-off-header .spotify-title{font-size:11px;line-height:16px}
+.spotify-off-actions{position:absolute;top:25px;left:278px;display:flex;flex-direction:column;gap:12px}
+.spotify-off-actions button{width:24px;height:24px;min-width:24px;min-height:24px}
+.spotify-surface[data-screen=off] .spotify-transport{position:static;display:contents}
+.spotify-surface[data-screen=off] .spotify-metal-control{position:absolute;left:30px;top:38px}
+.spotify-surface[data-screen=off] .spotify-seek{position:absolute;left:90px;top:57px;width:174px;height:17px}
+.spotify-surface[data-screen=off] .spotify-controls{position:absolute;left:91px;top:76px;width:173px;gap:7px;height:22px}
+.spotify-surface[data-screen=off] .spotify-controls>button{width:25px;min-width:25px;height:22px;min-height:22px}
+.spotify-surface[data-screen=off] .spotify-volume{max-width:101px}
+.spotify-lyrics,.spotify-lyrics-message{color:var(--lyric);background:var(--glass);font:11px/1.6 Tahoma,sans-serif;overscroll-behavior:contain;scrollbar-width:thin}
+.spotify-lyrics-shell{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;position:relative}
+.spotify-lyrics{box-sizing:border-box;position:relative;min-height:0;min-width:0;flex:1;overflow-y:auto;overflow-wrap:anywhere;padding:12px 7px;text-align:center}
+.spotify-lyrics-message{min-width:0;overflow-wrap:anywhere}
+.spotify-surface .spotify-follow{width:auto;height:20px;min-height:20px;flex-shrink:0;border-radius:4px;font-size:9px;line-height:1.3;margin:2px 7px}
+.spotify-lyrics:focus-visible{outline:2px solid #7dd9ff;outline-offset:-2px}
+.spotify-visualizer{position:relative;flex:1;min-height:0;overflow:hidden;background:#020916}.spotify-visualizer canvas{display:block;width:100%;height:100%}.spotify-visualizer small{position:absolute;bottom:4px;right:6px;color:#bdd8f0;font:7px Tahoma,sans-serif;letter-spacing:1px}
+.spotify-lyrics [data-active=true]{color:var(--lyric-active);font-weight:bold;text-shadow:0 0 8px #ace5ba66}
+
+/* Shared hardware finish: no FX mode, no perpetual CSS animation. */
+.spotify-surface button{position:relative;overflow:hidden;transition:filter 120ms ease,transform 120ms ease,box-shadow 120ms ease;cursor:pointer}
+.spotify-surface button::before{content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(115deg,transparent 20%,#ffffff70 45%,transparent 65%);opacity:.2;transform:translateX(-40%);transition:transform 180ms ease,opacity 180ms ease}
+.spotify-surface button:hover:not(:disabled)::before,.spotify-surface button:focus-visible::before{transform:translateX(30%);opacity:.8}
+.spotify-surface button:active:not(:disabled){transform:translateY(1px);filter:brightness(.94)}
+.spotify-surface button:disabled{cursor:not-allowed}
+.spotify-surface button:disabled::before{opacity:0}
+.spotify-surface button svg{position:relative;z-index:1}
+.spotify-surface button[aria-pressed=true],.spotify-surface button[aria-selected=true]{box-shadow:inset 0 1px 2px #fff,inset 0 -2px 4px #1c83af99,0 0 0 1px #e6ffff,0 0 5px #61cef080}
+.spotify-screen::after{z-index:2;border-radius:0;background:linear-gradient(125deg,#b9e5ff12,transparent 42%),repeating-linear-gradient(0deg,transparent 0 3px,#020e1610 3px 4px);box-shadow:inset 0 0 8px #0008}
+.spotify-settings .spotify-skins{display:flex;justify-content:space-between;gap:8px;white-space:nowrap}
+.spotify-settings .spotify-skins label{position:relative;display:inline-flex;align-items:center;height:24px;cursor:pointer;font-size:11px}
+.spotify-settings .spotify-skins input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.spotify-settings .spotify-skins input:checked+span{font-weight:700;text-decoration:underline;text-underline-offset:4px}
+.spotify-settings .spotify-skins label:hover span{color:#fff}
+.spotify-settings .spotify-skins input:focus-visible+span{outline:1px solid currentColor;outline-offset:2px}
+
+.spotify-panel{position:relative;min-width:0;min-height:0;flex:1;overflow:auto;overscroll-behavior:contain;padding:5px;color:var(--lyric);font:10px/1.4 Tahoma,sans-serif;scrollbar-width:thin}
+.spotify-panel>div{max-width:100%;overflow:visible;padding:0;display:block}
+.spotify-panel header{padding:0 22px 4px 0;border:0}.spotify-panel h2{font:600 11px/1.4 Tahoma,sans-serif;margin:0}.spotify-panel p{font-size:10px;margin:3px 0;padding:0;overflow-wrap:anywhere}
+.spotify-panel div,.spotify-panel span{min-width:0}
+.spotify-panel .spotify-panel-close{position:sticky;float:right;top:0;z-index:3;width:20px;min-width:20px;height:20px;min-height:20px;font-size:12px}
+.spotify-panel button:not(.spotify-panel-close){width:100%;height:auto;min-height:25px;border-radius:5px;padding:4px;white-space:normal;text-align:left;font:10px/1.35 Tahoma,sans-serif}
+.spotify-panel input{box-sizing:border-box;width:100%;min-width:0;background:#e7f4f6;color:#133646;border:1px solid #829cab;border-radius:4px;padding:4px;font:11px Tahoma,sans-serif}
+.spotify-panel form>div,.spotify-panel header+div{padding:4px 0}
+.spotify-panel img{width:28px;height:28px;object-fit:cover}
+.spotify-panel code{font-size:9px;white-space:normal;overflow-wrap:anywhere}
+.spotify-panel a{color:#bae9ff}
+.spotify-panel button span{white-space:normal;overflow-wrap:anywhere}
+.spotify-panel :focus-visible{outline:2px solid #70d5ff;outline-offset:-2px}
+.spotify-taste button{width:auto;height:auto;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
+/* Bounded rims: painted geometry stays within the actual SVG inner frame. */
+.spotify-surface .spotify-view-tabs button{border-width:1px;box-shadow:inset 0 1px #fff,inset 0 -1px #56788a,0 0 0 1px #8a9fab}
+.spotify-surface .spotify-view-tabs button[aria-selected=true]{box-shadow:inset 0 1px #fff,inset 0 -2px #3684aa,0 0 0 1px #698c9f}
+.spotify-surface .spotify-side-controls button{box-shadow:inset 0 1px 1px #fff,inset 0 -2px 2px #43627880,0 0 0 1px #f7ffff,0 0 0 3px #96a8b2}
+.spotify-surface .spotify-side-controls button[aria-pressed=true]{box-shadow:inset 0 1px #fff,inset 0 -2px 3px #1c83af99,0 0 0 1px #e6ffff,0 0 0 3px #729cb0}
+
+`
 
 function FactoryLoader({ label = 'Loading Spotify' }) {
   return jsx('span', { role: 'status', 'aria-label': label, className: 'spotify-loader', children: [0, 1, 2].map(i => jsx('i', { 'aria-hidden': true }, i)) })
@@ -888,23 +1023,139 @@ function MetalArtifact({ enabled, visible, playing }) {
     'data-artifact': 'metal-fx@1.0.4', children: jsx('canvas', { ref }) }) : null
 }
 
+function TastePalette({track}) {
+  const [name,setName]=useState('My taste palette')
+  const [brief,setBrief]=useState('')
+  const [draft,setDraft]=useState(track.spotifyUrl || '')
+  const [busy,setBusy]=useState(false)
+  const [notice,setNotice]=useState('Private by default. One URI or Artist | Title per line.')
+  const [result,setResult]=useState(null)
+  const [prompt,setPrompt]=useState('')
+  const [taste,setTaste]=useState([])
+  const request=useRef(null)
+  const lock=useRef(false)
+  const parse=()=>{
+    const lines=draft.split(/\r?\n/).filter(line=>line.trim())
+    if(!lines.length)throw new Error('Add tracks first.')
+    if(lines.every(line=>/^spotify:track:[A-Za-z0-9]{22}$/.test(line)))return {tracks:lines}
+    if(lines.some(line=>line.startsWith('spotify:')))throw new Error('Use exact Spotify URIs, without spaces; do not mix URIs and named songs.')
+    const songs=lines.map(line=>{const parts=line.split('|');if(parts.length!==2||!parts.every(p=>p.trim()))throw new Error('Use Artist | Title, one song per line.');return {artist:parts[0].trim(),title:parts[1].trim()}})
+    return {songs}
+  }
+  const act=async(action,saved)=>{
+    if(lock.current)return
+    lock.current=true;setBusy(true);setNotice('Checking Spotify…')
+    try{
+      if(!pluginRest)throw new Error('Spotify backend is unavailable.')
+      let body={action}
+      if(action!=='taste')body={...body,...parse()}
+      if(action==='create'){
+        if(!name.trim())throw new Error('Enter a playlist name.')
+        const key=JSON.stringify({name,brief,...body})
+        if(request.current?.key!==key)request.current={key,id:globalThis.crypto.randomUUID()}
+        body={...body,name,description:brief,public:false,requestId:request.current.id}
+      }
+      if(action==='set-liked'){
+        if(!body.tracks)throw new Error('Bulk likes need exact track URIs. Create the named-song playlist first to resolve them.')
+        body.saved=saved
+      }
+      const response=await pluginRest('/curate',{method:'POST',body,timeoutMs:120000})
+      if(response.playlistId)setResult(response)
+      if(!response.ok || (action!=='taste'&&!response.verified))throw new Error(response.error||'Spotify could not verify this operation. Do not create another copy.')
+      if(action==='create'){
+        setDraft(response.uris.join('\n'))
+        // Preserve the creation key across the resolved-URI representation.
+        request.current.key=JSON.stringify({name,brief,action:'create',tracks:response.uris})
+        setNotice(`Verified · ${response.trackCount} track${response.trackCount===1?'':'s'} saved`)
+      }else if(action==='set-liked'){
+        $libraryRevision.set($libraryRevision.get()+1)
+        setNotice(`Verified · ${response.trackCount} liked state${response.trackCount===1?'':'s'} updated`)
+      }else{
+        setTaste(response.tracks);setNotice(`Taste sample · ${response.sampleCount} recent liked songs`)
+      }
+    }catch(error){setNotice(error instanceof Error?error.message:'Curation failed.')}
+    finally{lock.current=false;setBusy(false)}
+  }
+  const makePrompt=()=>setPrompt(`Curate a private Spotify playlist named ${JSON.stringify(name)}. Taste brief: ${brief || 'Use the seed tracks below'}. Seeds: ${draft}. Recent liked-song sample: ${JSON.stringify(taste)}. Choose up to 20 songs and call spotify_player_curate once with action=create, name, public=false, a new requestId, and songs=[{title,artist}]. Do not invent Spotify IDs. Report the verified playlist URL; if resolution fails, show the unmatched songs without substituting them. Do not update Liked Songs unless I ask.`)
+  const field=(label,value,change,extra={})=>jsx('input',{'aria-label':label,placeholder:label,value,onChange:e=>change(e.target.value),disabled:busy,...extra})
+  const button=(label,click,caption=label)=>jsx(Tip,{label,children:jsx('button',{'aria-label':label,type:'button',disabled:busy,'aria-busy':busy,onClick:click,children:caption})})
+  return jsxs('section',{className:'spotify-taste','aria-label':'Taste palette',children:[
+    jsx('strong',{children:'Taste palette'}),
+    field('Playlist name',name,setName,{maxLength:100}),
+    field('Taste brief',brief,setBrief,{maxLength:300}),
+    jsx('textarea',{'aria-label':prompt?'Curation prompt':'Playlist tracks',value:prompt||draft,readOnly:!!prompt,disabled:busy,placeholder:'Artist | Title, one per line',onChange:e=>setDraft(e.target.value),onFocus:e=>{if(prompt)e.target.select()}}),
+    jsxs('div',{className:'spotify-taste-actions',children:prompt?[button('Back to tracks',()=>setPrompt('')),button('Select prompt',()=>{const node=document.querySelector('.spotify-taste textarea');node?.focus();node?.select()})]:[button('Create private playlist',()=>void act('create'),'Create private'),button('LLM prompt',makePrompt)]}),
+    !prompt?jsxs('div',{className:'spotify-taste-actions',children:[button('Like draft tracks',()=>void act('set-liked',true),'Like tracks'),button('Remove draft likes',()=>void act('set-liked',false),'Unlike tracks'),button('Read taste',()=>void act('taste'))]}):null,
+    jsx('p',{role:'status','aria-live':'polite',children:notice}),
+    result?.url?jsx('a',{href:result.url,target:'_blank',rel:'noopener noreferrer',onClick:e=>{e.preventDefault();void openExternal(result.url)},children:result.verified?'Open playlist':'Inspect partial playlist'}):null
+  ]})
+}
+
+function XPVisualizer({playing, visible}) {
+  const ref = useRef(null)
+  const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
+  useEffect(() => {
+    const media = matchMedia('(prefers-reduced-motion: reduce)')
+    const change = () => setReduced(media.matches)
+    media.addEventListener('change', change)
+    return () => media.removeEventListener('change', change)
+  }, [])
+  useEffect(() => {
+    const canvas = ref.current, context = canvas?.getContext('2d')
+    if (!context) return undefined
+    const draw = () => {
+      const w=canvas.width,h=canvas.height,t=performance.now()/2200
+      context.fillStyle='#020916';context.fillRect(0,0,w,h)
+      // XP-era geometric ribbons, explicitly ambient — not fake FFT data.
+      for(let band=0;band<3;band++) {
+        context.beginPath()
+        for(let i=0;i<=160;i++) {
+          const a=i/160*Math.PI*2
+          const x=w/2+Math.sin(a*3+t+band*.24)*w*.43*Math.cos(t*.17)
+          const y=h/2+Math.sin(a*2+t*.7+band*.24)*h*.36
+          if(i)context.lineTo(x,y);else context.moveTo(x,y)
+        }
+        context.strokeStyle=['#63c7ff','#809aff','#c0f6ff'][band]
+        context.lineWidth=1;context.shadowBlur=4;context.shadowColor=context.strokeStyle;context.stroke()
+      }
+      context.shadowBlur=0
+    }
+    const resize = () => {
+      const box=canvas.getBoundingClientRect()
+      canvas.width=Math.max(1,Math.min(320,Math.round(box.width)))
+      canvas.height=Math.max(1,Math.min(200,Math.round(box.height)))
+      draw()
+    }
+    const observer = new ResizeObserver(resize);observer.observe(canvas);resize()
+    const timer=signalAllowed(true,visible,playing,reduced) ? setInterval(draw,1000/12) : null
+    return () => {if(timer!==null)clearInterval(timer);observer.disconnect()}
+  }, [playing,visible,reduced])
+  return jsxs('div',{className:'spotify-visualizer','aria-label':'XP ambient visualizer',children:[
+    jsx('canvas',{ref,'aria-hidden':true}),jsx('small',{children:'XP · AMBIENT'})
+  ]})
+}
+
 function NativeRange({ label, value, max, disabled, onCommit }) {
   const [draft, setDraft] = useState(value)
   const editing = useRef(false)
   const sent = useRef(value)
   useEffect(() => { if (!editing.current) { setDraft(value); sent.current = value } }, [value])
-  const commit = event => {
+  const confirmed = useRef(value)
+  confirmed.current = value
+  const commit = async event => {
     editing.current = false
     const next = Number(event.currentTarget.value)
     if (next === sent.current) return
     sent.current = next
-    onCommit(String(next))
+    const accepted = await onCommit(String(next))
+    if (accepted === false) { sent.current = confirmed.current; setDraft(confirmed.current) }
   }
-  return jsx('input', { type: 'range', className: 'spotify-range', 'aria-label': label,
+  return jsx('input', { type: 'range', className: 'spotify-range', 'aria-label': label, title: label === 'Spotify volume' ? `Volume: ${Math.round(draft)}%` : `Seek: ${formatTime(draft)} of ${formatTime(max)}`, 'aria-valuetext': label === 'Spotify volume' ? `${Math.round(draft)} percent` : `${formatTime(draft)} of ${formatTime(max)}`,
     min: 0, max: Math.max(1, max), step: 1, value: Math.min(draft, max), disabled,
     style: { '--range-fill': `${Math.max(0, Math.min(100, draft / Math.max(1, max) * 100))}%` },
     onChange: event => { editing.current = true; setDraft(Number(event.target.value)) },
     onPointerUp: commit, onBlur: commit,
+    onPointerCancel: () => { editing.current=false; setDraft(confirmed.current) },
     onKeyUp: event => { if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown'].includes(event.key)) commit(event) }
   })
 }
@@ -969,6 +1220,7 @@ function activeLyricPosition(lines, playbackSeconds) {
 function SyncedLyrics({ durationSeconds, isPlaying, plainLyrics, positionSeconds, syncedLyrics }) {
   const lines = useMemo(() => parseSyncedLyrics(syncedLyrics, durationSeconds), [syncedLyrics, durationSeconds])
   const scrollerRef = useRef(null)
+  const [following, setFollowing] = useState(true)
   const lineRefs = useRef([])
   const activeRef = useRef({ lineIndex: -1, wordIndex: -1 })
   const [active, setActive] = useState(activeRef.current)
@@ -999,30 +1251,32 @@ function SyncedLyrics({ durationSeconds, isPlaying, plainLyrics, positionSeconds
   useEffect(() => {
     const scroller = scrollerRef.current
     const activeLine = lineRefs.current[active.lineIndex]
-    if (!scroller || !activeLine) return
+    if (!scroller || !activeLine || !following) return
     const reduceMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const top = Math.max(0, activeLine.offsetTop - (scroller.clientHeight - activeLine.offsetHeight) / 2)
     scroller.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' })
-  }, [active.lineIndex])
+  }, [active.lineIndex, following])
 
   if (!lines.length) {
     return jsx('div', {
-      className: 'min-h-0 flex-1 overflow-y-auto whitespace-pre-line rounded-lg bg-(--ui-bg-secondary) px-3 py-2 text-center text-sm leading-6 text-(--ui-text-secondary)',
+      className: 'spotify-lyrics-message',
       children: plainLyrics
     })
   }
 
-  return jsx('div', {
-    'aria-label': 'Synced lyrics',
-    className: 'relative min-h-0 flex-1 overflow-y-auto rounded-lg bg-(--ui-bg-secondary) px-3 py-8 text-center text-sm leading-6',
+  return jsxs('div', {className:'spotify-lyrics-shell',children:[jsx('div', {
+    'aria-label': 'Synced lyrics', tabIndex:0, onWheel:()=>setFollowing(false), onTouchStart:()=>setFollowing(false), onKeyDown:event=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(event.key))setFollowing(false)},
+    className: 'spotify-lyrics',
     ref: scrollerRef,
     children: lines.map((line, lineIndex) => {
       const isActiveLine = lineIndex === active.lineIndex
       return jsx('div', {
         className: 'py-1',
+        'data-active': isActiveLine,
+        'aria-current': isActiveLine ? 'true' : undefined,
         ref: element => { lineRefs.current[lineIndex] = element },
         style: {
-          color: 'var(--ui-text-secondary)',
+          color: 'var(--lyric)',
           opacity: isActiveLine ? 1 : 0.38,
           transition: 'opacity 220ms ease'
         },
@@ -1030,7 +1284,7 @@ function SyncedLyrics({ durationSeconds, isPlaying, plainLyrics, positionSeconds
           const isActiveWord = isActiveLine && wordIndex === active.wordIndex
           return jsx('span', {
             style: {
-              color: isActiveWord ? 'var(--ui-text-primary)' : 'var(--ui-text-secondary)',
+              color: isActiveWord ? 'var(--lyric-active)' : 'var(--lyric)',
               fontWeight: isActiveWord ? 500 : 400,
               opacity: isActiveWord ? 1 : isActiveLine ? 0.62 : 1,
               transition: 'color 180ms ease, opacity 180ms ease, font-weight 180ms ease'
@@ -1040,7 +1294,7 @@ function SyncedLyrics({ durationSeconds, isPlaying, plainLyrics, positionSeconds
         })
       }, `${line.startSeconds}-${lineIndex}`)
     })
-  })
+  }), !following && jsx('button',{className:'spotify-follow',type:'button','aria-label':'Follow current lyric',title:'Follow current lyric',onClick:()=>setFollowing(true),children:'Follow current lyric'})]})
 }
 
 function nextTimelinePosition(player) {
@@ -1068,32 +1322,67 @@ function mergePlayerSnapshot(current, snapshot) {
   return { ...snapshot, positionSeconds: nextPosition }
 }
 
-function nextPlayerDisplayMode(currentMode, measuredHeight) {
-  const height = Number(measuredHeight) || 152
-  if (currentMode === 'compact') return height > 112 ? 'default' : 'compact'
-  if (currentMode === 'expanded') return height < 244 ? 'default' : 'expanded'
-  if (height < 96) return 'compact'
-  if (height > 276) return 'expanded'
-  return 'default'
+// One physical faceplate. Narrow docks scroll rather than crush text and controls.
+function retroPlayerScale(viewportWidth) {
+  return Math.min(1, Math.max(234, Number(viewportWidth) || 320) / 320)
+}
+
+function playerPreferences(value = {}) {
+  value = value && typeof value === 'object' ? value : {}
+  return {mode: value.mode === 'off' ? 'off' : 'on',
+    skin: ['chrome', 'ice', 'graphite'].includes(value.skin) ? value.skin : 'chrome',
+    view: ['artwork', 'visualizer', 'lyrics', 'curate'].includes(value.view) ? value.view : 'artwork'}
+}
+
+// Consistent 24-unit vector marks: no font-dependent symbols on hardware controls.
+function playerIcon(name, filled = false) {
+  const paths = {
+    search: 'M10.5 3.5a7 7 0 1 0 0 14a7 7 0 0 0 0-14 M16 16l5 5',
+    heart: 'M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z',
+    playlist: 'M3 5h14 M3 10h14 M3 15h7 M17 13v8 M13 17h8',
+    taste: 'M9 17V5l11-2v12 M9 9l11-2 M9 17a3 3 0 1 1-3-3c1.7 0 3 1.3 3 3 M20 15a3 3 0 1 1-3-3c1.7 0 3 1.3 3 3',
+    screen: 'M5 3h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z M12 18v3 M8 21h8',
+    settings: 'M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8 M10 2h4l.6 3 2 .9 2.7-1.1 2 3.4-2.2 2 .2 2.2 2.2 1.9-2 3.5-2.9-1-1.8 1-.8 3.2h-4l-.7-3.1-1.9-1-2.8 1.1-2-3.5 2.2-2-.1-2.2-2.2-2 2-3.4 2.8 1 1.9-1Z'
+  }
+  return jsx('svg', {viewBox:'0 0 24 24', 'aria-hidden':true, focusable:false, fill:filled?'currentColor':'none', stroke:'currentColor', strokeWidth:2.2, strokeLinecap:'round', strokeLinejoin:'round', children:jsx('path',{d:paths[name]})})
 }
 
 function NativePlayer() {
   const [player, setPlayer] = useState({ running: false, state: 'loading' })
   const [savedState, setSavedState] = useState({ uri: '', status: 'idle', saved: null })
   const [libraryBusy, setLibraryBusy] = useState(false)
-  const [playlistOpen, setPlaylistOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const authQuery = useSpotifyAuth()
+  const accountDisconnected = authQuery.data?.loggedIn === false
+  const libraryRevision = useValue($libraryRevision)
+  const [localBusy, setBusy] = useState(false)
+  const commandBusy = useValue($commandBusy)
+  const busy = localBusy || commandBusy
   const [error, setError] = useState('')
-  const [displayMode, setDisplayMode] = useState('default')
-  const [activeExpandedView, setActiveExpandedView] = useState('artwork')
-  const [effects, setEffects] = useState(() => pluginStorage?.get('visualEffects') === true)
-  const toggleEffects = () => setEffects(current => { pluginStorage?.set('visualEffects', !current); return !current })
+  const [scale, setScale] = useState(1)
+  const viewportRef = useRef(null)
+  const [preferences, setPreferences] = useState(() => playerPreferences(pluginStorage?.get('playerPreferences')))
+  const [panel, setPanel] = useState('')
+  const settingsOpen = panel === 'settings'
+  const setSettingsOpen = open => setPanel(open ? 'settings' : '')
+  const closePanel = () => setPanel('')
+  const showPanel = next => { updatePreferences({mode:'on'}); setPanel(current => current === next ? '' : next) }
+  const screenOn = preferences.mode === 'on'
+  const activeExpandedView = preferences.view
+  const updatePreferences = change => setPreferences(current => {
+    const next = playerPreferences({ ...current, ...change })
+    pluginStorage?.set('playerPreferences', next)
+    return next
+  })
+  const setActiveExpandedView = view => { closePanel(); updatePreferences({view}) }
+  // Material feedback is standard; motion still respects visibility and OS preferences.
   const [lyrics, setLyrics] = useState('')
   const [syncedLyrics, setSyncedLyrics] = useState('')
   const [lyricsState, setLyricsState] = useState('idle')
+  const [lyricsRetry, setLyricsRetry] = useState(0)
   const containerRef = useRef(null)
   const visible = useSurfaceVisible(containerRef)
-  const statusQuery = useNativeStatus()
+  useEffect(() => { $panePolling.set(true); return () => $panePolling.set(false) }, [])
+  const statusQuery = useNativeStatus(true)
   useEffect(() => {
     if (statusQuery.data) setPlayer(current => mergePlayerSnapshot(current, statusQuery.data))
     setError(statusQuery.error?.message || '')
@@ -1112,30 +1401,27 @@ function NativePlayer() {
   }, [player.state, player.spotifyUrl, visible])
 
   useEffect(() => {
-    const element = containerRef.current
-    if (!element || typeof ResizeObserver === 'undefined') return undefined
-    const viewport = element.parentElement
-    if (!viewport) return undefined
-    let frameId = 0
-    const observer = new ResizeObserver(entries => {
-      const nextHeight = Math.round(entries[0]?.contentRect?.height || viewport.clientHeight || 152)
-      if (frameId) globalThis.cancelAnimationFrame(frameId)
-      frameId = globalThis.requestAnimationFrame(() => {
-        frameId = 0
-        setDisplayMode(currentMode => nextPlayerDisplayMode(currentMode, nextHeight))
-      })
-    })
-    observer.observe(viewport)
-    return () => {
-      observer.disconnect()
-      if (frameId) globalThis.cancelAnimationFrame(frameId)
+    const viewport = viewportRef.current
+    if (!viewport || typeof ResizeObserver === 'undefined') return undefined
+    const update = () => {
+      const widthScale = retroPlayerScale(viewport.clientWidth)
+      setScale(widthScale)
+      const group = viewport.closest('[data-tree-group]')
+      const viewportBox = viewport.getBoundingClientRect()
+      const zoom = viewport.clientHeight ? viewportBox.height / viewport.clientHeight : 1
+      const chromeHeight = group ? Math.max(0, (group.getBoundingClientRect().height - viewportBox.height) / (zoom || 1)) : 0
+      updatePlayerPane(screenOn ? 'on' : 'off', widthScale, Math.round(chromeHeight))
     }
-  }, [])
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [screenOn])
 
   useEffect(() => {
     let cancelled = false
     const uri = player.spotifyUrl || ''
-    if (!uri) {
+    if (!uri || accountDisconnected) {
       setSavedState({ uri: '', status: 'idle', saved: null })
       return undefined
     }
@@ -1152,14 +1438,14 @@ function NativePlayer() {
     return () => {
       cancelled = true
     }
-  }, [player.spotifyUrl])
+  }, [player.spotifyUrl, libraryRevision, accountDisconnected])
 
   useEffect(() => {
     let cancelled = false
     setLyrics('')
     setSyncedLyrics('')
     setLyricsState('idle')
-    if (!visible || displayMode !== 'expanded' || activeExpandedView !== 'lyrics' || !player.title || !player.artist || !player.durationMs) return undefined
+    if (!visible || !screenOn || panel || activeExpandedView !== 'lyrics' || !player.title || !player.artist || !player.durationMs) return undefined
     setLyricsState('loading')
     const signature = JSON.stringify({
       title: player.title,
@@ -1175,12 +1461,12 @@ function NativePlayer() {
         setLyricsState(snapshot.instrumental ? 'instrumental' : snapshot.lyrics || snapshot.syncedLyrics ? 'ready' : 'missing')
       })
       .catch(() => {
-        if (!cancelled) setLyricsState('missing')
+        if (!cancelled) setLyricsState('error')
       })
     return () => {
       cancelled = true
     }
-  }, [visible, displayMode, activeExpandedView, player.title, player.artist, player.album, player.durationMs])
+  }, [visible, screenOn, panel, activeExpandedView, player.title, player.artist, player.album, player.durationMs, lyricsRetry])
 
   const toggleSaved = async () => {
     const uri = player.spotifyUrl || ''
@@ -1190,7 +1476,7 @@ function NativePlayer() {
     try {
       const snapshot = await runNativeSpotify('set-saved', JSON.stringify({ uri, saved: desiredSaved }))
       if (snapshot.uri !== uri) throw new Error('Spotify returned liked status for a different track.')
-      setSavedState({ uri, status: 'ready', saved: Boolean(snapshot.saved) })
+      setSavedState(current => current.uri === uri ? { uri, status: 'ready', saved: Boolean(snapshot.saved) } : current)
       host.notify({
         kind: 'success',
         message: snapshot.saved ? 'Added to Liked Songs.' : 'Removed from Liked Songs.'
@@ -1211,10 +1497,12 @@ function NativePlayer() {
       const snapshot = await runNativeSpotify(action, argument)
       setPlayer(snapshot)
       setError('')
+      return true
     } catch (actionError) {
       const message = actionError instanceof Error ? actionError.message : 'Spotify command failed.'
       setError(message)
       host.notify({ kind: 'error', message })
+      return false
     } finally {
       setBusy(false)
     }
@@ -1230,344 +1518,128 @@ function NativePlayer() {
       : { label: 'Spotify app closed', tone: 'warn' }
   const savedReady = Boolean(player.spotifyUrl) && savedState.uri === player.spotifyUrl && savedState.status === 'ready'
   const saved = savedReady && savedState.saved === true
-  const savedControlLabel = savedReady
+  const savedControlLabel = !player.spotifyUrl ? 'Play a track to use Liked Songs' : savedReady
     ? saved ? 'Remove from Liked Songs' : 'Add to Liked Songs'
-    : savedState.status === 'error' ? 'Liked status unavailable' : 'Checking Liked Songs status'
-  const savedAriaLabel = savedReady
+    : savedState.status === 'error' ? 'Retry Liked Songs status' : 'Checking Liked Songs status'
+  const savedAriaLabel = accountDisconnected ? 'Connect Spotify to use Liked Songs' : savedReady
     ? saved ? 'Unlike current track' : 'Like current track'
     : savedControlLabel
-  if (displayMode === 'compact') {
-    return jsxs('section', {
-      ref: containerRef,
-      'data-visible': visible,
-      'data-mode': displayMode,
-      className: 'spotify-surface flex h-full min-h-0 items-center gap-1.5 overflow-hidden px-2 py-1',
-      children: [
-        jsx('style', { children: PLAYER_CSS }),
-        jsxs('div', {
-          className: 'min-w-0 flex-1',
-          children: [
-            jsx('div', {
-              className: 'truncate text-xs font-medium',
-              title: player.title || '',
-              children: player.title || (player.running ? 'Nothing selected' : 'Open Spotify')
-            }),
-            jsxs('div', {
-              className: 'flex min-w-0 items-center gap-1 text-[0.625rem] text-(--ui-text-tertiary)',
-              children: [
-                jsx('span', { className: 'truncate', children: player.artist || status.label }),
-                jsx('span', { children: '·' }),
-                jsx('span', { className: 'shrink-0 tabular-nums', children: `${formatTime(player.positionSeconds)} / ${formatTime(durationSeconds)}` })
-              ]
-            })
-          ]
-        }),
-        jsxs('div', {
-          className: 'flex shrink-0 items-center gap-0.5',
-          children: [
-            jsx(Button, {
-              'aria-label': 'Previous track',
-              disabled: busy || !player.running,
-              onClick: () => void act('previous'),
-              size: 'icon-sm',
-              type: 'button',
-              variant: 'ghost',
-              children: jsx(icons.ChevronLeft, {})
-            }),
-            jsx(Button, {
-              'aria-label': isPlaying ? 'Pause Spotify' : 'Play Spotify',
-              disabled: busy,
-              onClick: () => void act('playpause'),
-              size: 'icon-sm',
-              type: 'button',
-              children: jsx(isPlaying ? icons.Pause : icons.Play, {})
-            }),
-            jsx(Button, {
-              'aria-label': 'Next track',
-              disabled: busy || !player.running,
-              onClick: () => void act('next'),
-              size: 'icon-sm',
-              type: 'button',
-              variant: 'ghost',
-              children: jsx(icons.ChevronRight, {})
-            })
-          ]
-        }),
-        jsx(SpotifyPlaylistDialog, { open: playlistOpen, onOpenChange: setPlaylistOpen, track: player })
-      ]
-    })
-  }
-
-  if (displayMode === 'expanded') {
-    const lyricsMessage = lyricsState === 'loading'
-      ? 'Loading lyrics…'
-      : lyricsState === 'instrumental'
-        ? 'This track is instrumental.'
-        : lyricsState === 'missing'
-          ? 'Lyrics are not available for this track.'
-          : lyrics
-
-    return jsxs('section', {
-      ref: containerRef,
-      'data-visible': visible,
-      'data-mode': displayMode,
-      className: 'spotify-surface flex h-full min-h-0 flex-col overflow-hidden p-2',
-      children: [
-        jsx('style', { children: PLAYER_CSS }),
-        jsxs('div', {
-          'aria-label': 'Expanded player view',
-          className: 'spotify-view-tabs',
-          role: 'tablist',
-          children: [
-            jsx(Button, {
-              'aria-selected': activeExpandedView === 'artwork',
-              className: 'shrink-0',
-              onClick: () => setActiveExpandedView('artwork'),
-              role: 'tab',
-              size: 'xs',
-              type: 'button',
-              variant: activeExpandedView === 'artwork' ? 'secondary' : 'ghost',
-              children: 'Artwork'
-            }),
-            jsx(Button, {
-              'aria-selected': activeExpandedView === 'lyrics',
-              className: 'shrink-0',
-              onClick: () => setActiveExpandedView('lyrics'),
-              role: 'tab',
-              size: 'xs',
-              type: 'button',
-              variant: activeExpandedView === 'lyrics' ? 'secondary' : 'ghost',
-              children: 'Lyrics'
-            }),
-            jsx(Button, { 'aria-label': effects ? 'Disable visual effects' : 'Enable visual effects', 'aria-pressed': effects, onClick: toggleEffects, variant: 'ghost', size: 'xs', children: effects ? 'FX on' : 'FX off' })
-          ]
-        }),
-        activeExpandedView === 'artwork'
-          ? player.artworkUrl
-            ? jsx('img', {
-                alt: player.album ? `${player.album} cover` : 'Album cover',
-                className: 'spotify-artwork',
-                src: player.artworkUrl
-              })
-            : jsx('div', {
-                className: 'flex min-h-0 flex-1 items-center justify-center rounded-lg bg-(--ui-bg-secondary) text-(--ui-text-quaternary)',
-                children: jsx(icons.AudioLines, { className: 'size-10' })
-              })
-          : lyricsState === 'loading'
-            ? jsx('div', {
-                className: 'flex min-h-0 flex-1 items-center justify-center',
-                children: jsx(FactoryLoader, { label: 'Loading lyrics' })
-              })
-            : lyricsState === 'ready' && syncedLyrics
-              ? jsx(SyncedLyrics, {
-                  durationSeconds,
-                  isPlaying: isPlaying && visible,
-                  plainLyrics: lyrics,
-                  positionSeconds: player.positionSeconds,
-                  syncedLyrics
-                })
-              : jsx('div', {
-                  className: 'min-h-0 flex-1 overflow-y-auto whitespace-pre-line rounded-lg bg-(--ui-bg-secondary) px-3 py-2 text-center text-sm leading-6 text-(--ui-text-secondary)',
-                  children: lyricsMessage
-                }),
-        jsxs('div', {
-          className: 'mt-2 flex shrink-0 items-center gap-2',
-          children: [
-            jsxs('div', {
-              className: 'min-w-0 flex-1',
-              children: [
-                jsx('div', { className: 'truncate text-sm font-semibold', children: player.title || 'Nothing selected' }),
-                jsx('div', { className: 'truncate text-xs text-(--ui-text-secondary)', children: player.artist || status.label })
-              ]
-            }),
-            jsx(Button, {
-              'aria-label': savedAriaLabel,
-              disabled: libraryBusy || !savedReady,
-              onClick: () => void toggleSaved(),
-              size: 'icon-sm',
-              type: 'button',
-              variant: 'ghost',
-              children: jsx('span', { className: saved ? 'text-(--ui-accent)' : 'text-(--ui-text-tertiary)', children: saved ? '♥' : '♡', 'aria-label': savedAriaLabel })
-            }),
-            jsx(Button, {
-              'aria-label': 'Add current track to playlist',
-              disabled: !player.spotifyUrl,
-              onClick: () => setPlaylistOpen(true),
-              size: 'icon-sm',
-              type: 'button',
-              variant: 'ghost',
-              children: jsx(icons.Plus, {})
-            })
-          ]
-        }),
-        jsxs('div', {
-          className: 'mt-1 flex shrink-0 items-center gap-1.5 text-[0.625rem] text-(--ui-text-quaternary)',
-          children: [
-            jsx('span', { className: 'w-7 tabular-nums', children: formatTime(player.positionSeconds) }),
-            jsx(NativeRange, { label: 'Seek Spotify', value: Number(player.positionSeconds || 0), max: durationSeconds, disabled: busy || !durationSeconds, onCommit: value => void act('seek', value) }),
-            jsx('span', { className: 'w-7 text-right tabular-nums', children: formatTime(durationSeconds) })
-          ]
-        }),
-        jsxs('div', {
-          className: 'spotify-controls',
-          children: [
-            jsx(Button, { 'aria-label': 'Previous track', disabled: busy || !player.running, onClick: () => void act('previous'), size: 'icon-sm', type: 'button', variant: 'ghost', children: jsx(icons.ChevronLeft, {}) }),
-            jsxs('span', { className: 'spotify-metal-control', children: [
-              jsx(Button, { 'aria-label': isPlaying ? 'Pause Spotify' : 'Play Spotify', disabled: busy, onClick: () => void act('playpause'), size: 'icon-sm', type: 'button', children: jsx(isPlaying ? icons.Pause : icons.Play, {}) }),
-              jsx(MetalArtifact, { enabled: effects, visible, playing: isPlaying })
-            ] }),
-            jsx(Button, { 'aria-label': 'Next track', disabled: busy || !player.running, onClick: () => void act('next'), size: 'icon-sm', type: 'button', variant: 'ghost', children: jsx(icons.ChevronRight, {}) }),
-            jsxs('div', { className: 'spotify-volume', children: [jsx('span', { 'aria-hidden': true, children: 'Vol' }), jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) })] })
-          ]
-        }),
-        jsx(SpotifyPlaylistDialog, { open: playlistOpen, onOpenChange: setPlaylistOpen, track: player })
-      ]
-    })
-  }
-
-  return jsxs('section', {
+  const button = (label, child, onClick, options = {}) => jsx(Tip, {
+    label,
+    children: jsx(Button, { 'aria-label': label, type: 'button', size: 'icon-sm', variant: 'ghost', onClick, ...options, children: child })
+  })
+  const searchButton = button('Search Spotify', playerIcon('search'), () => showPanel(accountDisconnected ? 'auth' : 'search'), { 'aria-pressed': panel === 'search' })
+  const likeState = accountDisconnected ? 'disconnected' : !player.spotifyUrl ? 'no-track' : savedReady ? saved ? 'liked' : 'not-liked' : savedState.status === 'error' ? 'unavailable' : 'loading'
+  const likeView = jsxs('span',{className:'spotify-heart-view',children:[playerIcon('heart', saved), !savedReady && jsx('span',{'aria-hidden':true,'data-like-indicator':true,children:likeState==='loading'?'…':likeState==='unavailable'?'!':'?'})]})
+  const likeButton = button(savedAriaLabel, likeView, () => accountDisconnected ? showPanel('auth') : savedState.status === 'error' ? $libraryRevision.set($libraryRevision.get()+1) : void toggleSaved(), { disabled: libraryBusy || (!accountDisconnected && !savedReady && savedState.status !== 'error'), 'aria-pressed': savedReady ? saved : undefined, 'data-liked-state':likeState, 'aria-busy': libraryBusy || likeState==='loading' })
+  const playlistButton = button('Add current track to playlist', playerIcon('playlist'), () => showPanel(accountDisconnected ? 'auth' : 'playlists'), { disabled: !player.spotifyUrl, 'aria-pressed': panel === 'playlists' })
+  const tasteButton = button('Taste palette', playerIcon('taste'), () => setActiveExpandedView('curate'), { 'aria-pressed': !panel && activeExpandedView === 'curate' })
+  const screenButton = button(screenOn ? 'Turn screen off' : 'Turn screen on', playerIcon('screen'), () => { setSettingsOpen(false); updatePreferences({mode: screenOn ? 'off' : 'on'}) }, { 'aria-pressed': screenOn })
+  const settingsButton = button('Player settings', playerIcon('settings'), () => showPanel('settings'), { 'aria-pressed': settingsOpen })
+  const settingsContent = jsxs('div', { className: 'spotify-settings', 'aria-label': 'Player settings panel', onKeyDown: event => { if(event.key === 'Escape') {setSettingsOpen(false);event.stopPropagation()} }, children: [
+    jsx('header', {children:'Settings'}),
+    jsxs('fieldset',{children:[jsx('legend',{children:'Finish'}),jsx('div', {role:'radiogroup', 'aria-label':'Player skin', className:'spotify-skins', children:[['chrome','Classic chrome','Chrome'],['ice','Ice blue','Ice'],['graphite','Graphite','Graphite']].map(([value,label,text])=>jsxs('label',{title:label,children:[jsx('input',{type:'radio','aria-label':label,name:'spotify-skin',value,checked:preferences.skin===value,onChange:()=>updatePreferences({skin:value})}),jsx('span',{children:text})]},value))})]}),
+    jsxs('a',{className:'spotify-settings-account',href:'#spotify-account','aria-label':'Spotify connection',title:'Spotify connection',onClick:event=>{event.preventDefault();setPanel('auth')},children:[jsx('span',{children:'Account'}),jsx('span',{children:authQuery.data?.loggedIn ? 'Connected ›' : accountDisconnected ? 'Connect ›' : 'Check status ›'})]})
+  ] })
+  const trackCopy = jsxs('div', {
+    className: 'spotify-standard-copy',
+    children: [
+      jsx('div', { className: 'spotify-title', title: player.title || '', children: error ? 'Spotify unavailable' : player.title || (player.running ? 'Nothing selected' : 'Open Spotify') }),
+      jsxs('div', { className: 'spotify-meta', children: [
+        jsx('span', { className: 'spotify-artist', title: error || player.artist || status.label, children: player.artist || status.label }),
+        jsx('span', { className: 'spotify-time', children: `${formatTime(player.positionSeconds)} / ${formatTime(durationSeconds)}` })
+      ] })
+    ]
+  })
+  const transport = jsxs('div', {
+    className: 'spotify-transport',
+    children: [
+      jsxs('span', { className: 'spotify-metal-control', children: [
+        button(isPlaying ? 'Pause Spotify' : 'Play Spotify', jsx(isPlaying ? icons.Pause : icons.Play, {}), () => void act(isPlaying ? 'pause' : 'play'), { disabled: busy, 'aria-busy': busy }),
+        jsx(MetalArtifact, { enabled: true, visible, playing: isPlaying })
+      ] }),
+      jsx('div', { className: 'spotify-seek', children: jsx(NativeRange, { label: 'Seek Spotify', value: Number(player.positionSeconds || 0), max: durationSeconds, disabled: busy || !durationSeconds, onCommit: value => act('seek', value) }) }),
+      jsxs('div', { className: 'spotify-controls', children: [
+        button('Previous track', jsx(icons.ChevronLeft, {}), () => void act('previous'), { disabled: busy || !player.running }),
+        button('Next track', jsx(icons.ChevronRight, {}), () => void act('next'), { disabled: busy || !player.running }),
+        jsxs('div', { className: 'spotify-volume', children: [
+          jsx('span', { 'aria-hidden': true, children: '♪' }),
+          jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => act('volume', value) })
+        ] })
+      ] })
+    ]
+  })
+  const lyricsMessage = !player.title || !player.artist ? 'Play a track to see lyrics.' : lyricsState === 'instrumental' ? 'This track is instrumental.' : lyricsState === 'missing' ? 'Lyrics are not available for this track.' : lyrics
+  const screenContent = activeExpandedView === 'curate' ? jsx(TastePalette,{track:player}) : activeExpandedView === 'visualizer'
+    ? jsx(XPVisualizer, {playing:isPlaying, visible})
+    : activeExpandedView === 'artwork'
+    ? player.artworkUrl
+      ? jsx('img', { className: 'spotify-artwork', alt: player.album ? `${player.album} cover` : 'Album cover', src: player.artworkUrl })
+      : jsx('div', { className: 'spotify-empty-screen', children: jsx(icons.AudioLines, {}) })
+    : lyricsState === 'error'
+      ? jsxs('div',{className:'spotify-lyrics-message',role:'status',children:[jsx('p',{children:'Could not load lyrics.'}),button('Retry lyrics','Retry',()=>setLyricsRetry(v=>v+1))]})
+    : lyricsState === 'loading'
+      ? jsx(FactoryLoader, { label: 'Loading lyrics' })
+      : lyricsState === 'ready' && syncedLyrics
+        ? jsx(SyncedLyrics, { key:player.spotifyUrl, durationSeconds, isPlaying: isPlaying && visible, plainLyrics: lyrics, positionSeconds: player.positionSeconds, syncedLyrics })
+        : jsx('div', { className: 'spotify-lyrics-message', children: lyricsMessage })
+  const faceplate = jsxs('section', {
     ref: containerRef,
     'data-visible': visible,
-      'data-mode': displayMode,
-    className: 'spotify-surface h-full min-h-0 overflow-hidden px-2 py-2',
+    'data-skin': 'retro-chrome',
+    'data-screen': preferences.mode,
+    'data-finish': preferences.skin,
+    className: 'spotify-surface',
+    style: { transform: `scale(${scale})` },
     children: [
       jsx('style', { children: PLAYER_CSS }),
-      jsxs('div', {
-        className: 'spotify-standard-top',
-        children: [
-          player.artworkUrl
-            ? jsx('img', {
-                alt: player.album ? `${player.album} cover` : 'Album cover',
-                className: 'size-14 shrink-0 rounded object-cover',
-                src: player.artworkUrl
-              })
-            : jsx('div', {
-                className: 'flex size-14 shrink-0 items-center justify-center rounded border border-(--ui-stroke-secondary) text-(--ui-text-quaternary)',
-                children: jsx(icons.AudioLines, {})
-              }),
-          jsxs('div', {
-            className: 'min-w-0 flex-1',
-            children: [
-              jsx('div', {
-                className: 'truncate text-sm font-medium',
-                title: player.title || '',
-                children: player.title || (player.running ? 'Nothing selected' : 'Open Spotify to start listening')
-              }),
-              jsxs('div', {
-                className: 'mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-(--ui-text-secondary)',
-                title: error || status.label,
-                children: [
-                  jsx(StatusDot, { tone: status.tone }),
-                  jsx('span', {
-                    className: 'truncate',
-                    title: player.artist || '',
-                    children: player.artist || 'Spotify for macOS'
-                  })
-                ]
-              })
-            ]
-          }),
-          jsxs('div', {
-            className: 'flex shrink-0 items-center gap-0.5',
-            children: [
-              jsx(Tip, {
-                label: 'Search Spotify',
-                children: jsx(Button, {
-                  'aria-label': 'Search Spotify',
-                  onClick: () => $searchOpen.set(true),
-                  size: 'icon-sm',
-                  type: 'button',
-                  variant: 'ghost',
-                  children: jsx(icons.Search, {})
-                })
-              }),
-              jsx(Tip, {
-                label: savedControlLabel,
-                children: jsx(Button, {
-                  'aria-label': savedAriaLabel,
-                  disabled: libraryBusy || !savedReady,
-                  onClick: () => void toggleSaved(),
-                  size: 'icon-sm',
-                  type: 'button',
-                  variant: 'ghost',
-                  children: jsx('span', {
-                    className: saved ? 'text-sm text-(--ui-accent)' : 'text-sm text-(--ui-text-tertiary)',
-                    children: saved ? '♥' : '♡',
-                    'aria-label': savedAriaLabel
-                  })
-                })
-              }),
-              jsx(Tip, {
-                label: 'Add to playlist',
-                children: jsx(Button, {
-                  'aria-label': 'Add current track to playlist',
-                  disabled: !player.spotifyUrl,
-                  onClick: () => setPlaylistOpen(true),
-                  size: 'icon-sm',
-                  type: 'button',
-                  variant: 'ghost',
-                  children: jsx(icons.Plus, {})
-                })
-              }),
-              jsx(Tip, {
-                label: 'Previous track',
-                children: jsx(Button, {
-                  'aria-label': 'Previous track',
-                  disabled: busy || !player.running,
-                  onClick: () => void act('previous'),
-                  size: 'icon-sm',
-                  type: 'button',
-                  variant: 'ghost',
-                  children: jsx(icons.ChevronLeft, {})
-                })
-              }),
-              jsx(Tip, {
-                label: isPlaying ? 'Pause' : 'Play',
-                children: jsxs('span', { className: 'spotify-metal-control', children: [jsx(Button, {
-                  'aria-label': isPlaying ? 'Pause Spotify' : 'Play Spotify',
-                  disabled: busy,
-                  onClick: () => void act('playpause'),
-                  size: 'icon-sm',
-                  type: 'button',
-                  children: jsx(isPlaying ? icons.Pause : icons.Play, {})
-                }), jsx(MetalArtifact, { enabled: effects, visible, playing: isPlaying })] })
-              }),
-              jsx(Tip, {
-                label: 'Next track',
-                children: jsx(Button, {
-                  'aria-label': 'Next track',
-                  disabled: busy || !player.running,
-                  onClick: () => void act('next'),
-                  size: 'icon-sm',
-                  type: 'button',
-                  variant: 'ghost',
-                  children: jsx(icons.ChevronRight, {})
-                })
-              }),
-              jsx(Button, { className: 'spotify-standard-fx', 'aria-label': effects ? 'Disable visual effects' : 'Enable visual effects', 'aria-pressed': effects, onClick: toggleEffects, variant: 'ghost', size: 'icon-sm', children: 'FX' })
-            ]
-          })
-        ]
-      }),
-      jsxs('div', {
-        className: 'mt-1.5 flex items-center gap-1.5 text-[0.625rem] text-(--ui-text-quaternary)',
-        children: [
-          jsx('span', { className: 'w-7', children: formatTime(player.positionSeconds) }),
-          jsx(NativeRange, { label: 'Seek Spotify', value: Number(player.positionSeconds || 0), max: durationSeconds, disabled: busy || !durationSeconds, onCommit: value => void act('seek', value) }),
-          jsx('span', { className: 'w-7 text-right', children: formatTime(durationSeconds) })
-        ]
-      }),
-      jsxs('div', { className: 'spotify-volume', children: [jsx('span', { 'aria-hidden': true, children: 'Vol' }), jsx(NativeRange, { label: 'Spotify volume', value: Number(player.volume || 0), max: 100, disabled: busy || !player.running, onCommit: value => void act('volume', value) })] }),
-      jsx(SpotifyPlaylistDialog, {
-        open: playlistOpen,
-        onOpenChange: setPlaylistOpen,
-        track: player
-      })
+      screenOn ? jsxs('div', { className: 'spotify-upper', children: [
+        jsxs('div', { className: 'spotify-side-controls', children: [searchButton, likeButton, playlistButton] }),
+        jsxs('div', {className:'spotify-view-tabs', role:'tablist', 'aria-label':'Screen view', onKeyDown:event=>{
+              const views=['artwork','visualizer','lyrics'], keys=['ArrowLeft','ArrowRight','Home','End']
+              if(!keys.includes(event.key))return
+              event.preventDefault()
+              const index=views.indexOf(activeExpandedView), next=event.key==='Home'?0:event.key==='End'?2:(index+(event.key==='ArrowRight'?1:2))%3
+              setActiveExpandedView(views[next]);event.currentTarget.querySelectorAll('[role=tab]')[next]?.focus()
+            }, children:[
+            button('Artwork', 'Art', () => setActiveExpandedView('artwork'), { role: 'tab', tabIndex: activeExpandedView === 'artwork' ? 0 : -1, 'aria-selected': !panel && activeExpandedView === 'artwork' }),
+            button('Visualizer', 'Visual', () => setActiveExpandedView('visualizer'), { role: 'tab', tabIndex: activeExpandedView === 'visualizer' ? 0 : -1, 'aria-selected': !panel && activeExpandedView === 'visualizer' }),
+            button('Lyrics', 'Lyrics', () => setActiveExpandedView('lyrics'), { role: 'tab', tabIndex: activeExpandedView === 'lyrics' ? 0 : -1, 'aria-selected': !panel && activeExpandedView === 'lyrics' })
+          ]}),
+        jsxs('div', { className: 'spotify-display', children: [
+          jsx('div', { className: 'spotify-screen', children: error ? jsxs('div',{role:'alert',className:'spotify-lyrics-message',children:[jsx('p',{children:error}),button('Retry Spotify status','Retry',()=>void act('status'),{disabled:busy})]}) : settingsOpen ? settingsContent : panel === 'search' ? jsx(SpotifySearchDialog, {embedded:true,onClose:closePanel}) : panel === 'playlists' ? jsx(SpotifyPlaylistDialog,{embedded:true,open:true,onOpenChange:closePanel,track:player}) : panel === 'auth' ? jsx(SpotifyAuthDialog,{embedded:true,onClose:closePanel}) : screenContent }),
+          jsx('div', { className: 'spotify-lcd', children: trackCopy })
+        ] }),
+        jsxs('div', { className: 'spotify-side-controls', children: [tasteButton, screenButton, settingsButton] })
+      ] }) : jsxs('div', {className:'spotify-off-header',children:[
+        jsx('div',{className:'spotify-lcd',children:trackCopy}),
+        jsxs('div',{className:'spotify-off-actions',children:[settingsButton,screenButton]})
+      ]}),
+      transport,
+      null
     ]
+  })
+  return jsx('div', {
+    ref: viewportRef,
+    className: 'spotify-retro-viewport',
+    children: jsx('div', {
+      className: 'spotify-retro-stage',
+      style: { width: 320 * scale, height: (screenOn ? 280 : 112) * scale },
+      children: faceplate
+    })
   })
 }
 
-function SpotifyPlaylistDialog({ open, onOpenChange, track }) {
+
+function ScreenPanel({open, onOpenChange, children}) {
+  const ref = useRef(null)
+  useEffect(() => { ref.current?.querySelector('input:not(:disabled),button')?.focus() }, [])
+  return open ? jsxs('section', {ref, className:'spotify-panel', 'aria-label':'Spotify screen panel', onKeyDown:event=>{if(event.key==='Escape'){event.stopPropagation();onOpenChange(false)}}, children:[
+    jsx('button',{type:'button',className:'spotify-panel-close','aria-label':'Close screen panel',title:'Close screen panel',onClick:()=>onOpenChange(false),children:'×'}),children
+  ]}) : null
+}
+
+function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false }) {
   const [playlists, setPlaylists] = useState([])
   const [playlistQuery, setPlaylistQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1618,18 +1690,18 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track }) {
     ? playlists.filter(playlist => playlist.name.toLocaleLowerCase().includes(normalizedQuery))
     : playlists
 
-  return jsx(Dialog, {
+  return jsx(embedded ? ScreenPanel : Dialog, {
     open,
     onOpenChange,
-    children: jsx(DialogContent, {
+    children: jsx(embedded ? 'div' : DialogContent, {
       className: 'max-w-sm gap-0 overflow-hidden p-0',
       children: jsxs('div', {
         children: [
           jsxs(DialogHeader, {
             className: 'border-b border-(--ui-stroke-secondary) px-4 py-3 text-left',
             children: [
-              jsx(DialogTitle, { children: 'Add to playlist' }),
-              jsx(DialogDescription, {
+              jsx(embedded ? 'h2' : DialogTitle, { children: 'Add to playlist' }),
+              jsx(embedded ? 'p' : DialogDescription, {
                 children: track.title ? `${track.title} — ${track.artist || 'Spotify'}` : 'Choose a playlist.'
               })
             ]
@@ -1659,6 +1731,7 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track }) {
                           children: visiblePlaylists.map(playlist =>
                             jsxs('button', {
                               'aria-label': `Add to ${playlist.name}`,
+                              title: `Add current track to ${playlist.name}`,
                               className: 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-(--ui-bg-hover)',
                               disabled: Boolean(addingId),
                               onClick: () => void addToPlaylist(playlist),
@@ -1697,10 +1770,10 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track }) {
                         })
                   ]
                 })
-              : jsx('p', {
+              : !error ? jsx('p', {
                   className: 'px-4 py-6 text-center text-sm text-(--ui-text-secondary)',
                   children: 'No playlists found.'
-                }),
+                }) : null,
           error ? jsx('p', { className: 'px-4 pb-3 text-xs text-destructive', children: error }) : null
         ]
       })
@@ -1708,8 +1781,9 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track }) {
   })
 }
 
-function SpotifyAuthDialog() {
-  const open = useValue($authOpen)
+function SpotifyAuthDialog({embedded = false, onClose} = {}) {
+  const globalOpen = useValue($authOpen)
+  const open = embedded || globalOpen
   const [auth, setAuth] = useState({
     loggedIn: false,
     clientConfigured: false,
@@ -1720,11 +1794,18 @@ function SpotifyAuthDialog() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
+  const authQuery = useSpotifyAuth(open)
+  useEffect(() => {
+    if (authQuery.data) {setAuth(authQuery.data);setError('')}
+    if (authQuery.error) setError(authQuery.error.message)
+  }, [authQuery.data,authQuery.error])
+
   const refreshAuth = async () => {
     if (!pluginRest) return
     try {
       const snapshot = await pluginRest('/auth/status', { method: 'GET' })
       setAuth(snapshot)
+      queryClient.setQueryData(['spotify-player','auth-status'],snapshot)
       setError('')
     } catch (statusError) {
       setError(statusError instanceof Error ? statusError.message : 'Could not read Spotify connection status.')
@@ -1734,12 +1815,11 @@ function SpotifyAuthDialog() {
   useEffect(() => {
     if (!open) return undefined
     void refreshAuth()
-    const interval = globalThis.setInterval(() => void refreshAuth(), 1200)
-    return () => globalThis.clearInterval(interval)
+    void queryClient.invalidateQueries({queryKey:['spotify-player','auth-status']})
   }, [open])
 
   const setOpen = next => {
-    $authOpen.set(next)
+    if (embedded) { if (!next) onClose() } else $authOpen.set(next)
     if (!next) {
       setClientId('')
       setError('')
@@ -1766,10 +1846,10 @@ function SpotifyAuthDialog() {
   const waiting = auth.phase === 'waiting' || auth.phase === 'starting'
   const connected = Boolean(auth.loggedIn || auth.phase === 'connected')
 
-  return jsx(Dialog, {
+  return jsx(embedded ? ScreenPanel : Dialog, {
     open,
     onOpenChange: setOpen,
-    children: jsx(DialogContent, {
+    children: jsx(embedded ? 'div' : DialogContent, {
       className: 'max-w-md gap-0 overflow-hidden p-0',
       children: jsxs('div', {
         children: [
@@ -1786,13 +1866,13 @@ function SpotifyAuthDialog() {
                   }),
                   jsxs('div', {
                     children: [
-                      jsx(DialogTitle, { children: connected ? 'Spotify connected' : 'Connect Spotify' }),
+                      jsx(embedded ? 'h2' : DialogTitle, { children: connected ? 'Spotify connected' : 'Connect Spotify' }),
                       jsx('div', { className: 'mt-0.5 text-[0.6875rem] font-medium uppercase tracking-[0.14em] text-(--ui-text-tertiary)', children: 'Secure PKCE connection' })
                     ]
                   })
                 ]
               }),
-              jsx(DialogDescription, {
+              jsx(embedded ? 'p' : DialogDescription, {
                 children: connected
                   ? 'Hermes can search, save, and organize music through your Spotify account.'
                   : 'Authorize through Spotify in your browser. Your password is never shared with Hermes.'
@@ -1836,6 +1916,7 @@ function SpotifyAuthDialog() {
                                   href: 'https://developer.spotify.com/dashboard',
                                   rel: 'noreferrer',
                                   target: '_blank',
+                                  title: 'Open Spotify developer dashboard',
                                   children: 'Open dashboard'
                                 })
                               })
@@ -1880,6 +1961,7 @@ function SpotifyAuthDialog() {
                     disabled: busy || waiting || (!auth.clientConfigured && clientId.trim().length < 20),
                     onClick: () => void connect(),
                     type: 'button',
+                    title: 'Authorize your Spotify account in your browser',
                     children: 'Connect Spotify'
                   })
                 ]
@@ -1898,14 +1980,15 @@ function SpotifyAuthDialog() {
 }
 
 function SpotifyStatusBar() {
-  const statusQuery = useNativeStatus(true)
+  const panePolling = useValue($panePolling)
+  const statusQuery = useNativeStatus(!panePolling)
   const player = statusQuery.data || { running: false, state: 'loading' }
   const error = statusQuery.error?.message || ''
   const commandBusy = useValue($commandBusy)
 
   const toggle = async () => {
     try {
-      await runNativeSpotify('playpause')
+      await runNativeSpotify(player.state === 'playing' ? 'pause' : 'play')
     } catch (actionError) {
       const message = actionError instanceof Error ? actionError.message : 'Spotify command failed.'
       host.notify({ kind: 'error', message })
@@ -1966,8 +2049,9 @@ function SpotifyStatusBar() {
   })
 }
 
-function SpotifySearchDialog() {
-  const open = useValue($searchOpen)
+function SpotifySearchDialog({embedded = false, onClose} = {}) {
+  const globalOpen = useValue($searchOpen)
+  const open = embedded || globalOpen
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [hasSearched, setHasSearched] = useState(false)
@@ -1975,7 +2059,7 @@ function SpotifySearchDialog() {
   const [error, setError] = useState('')
 
   const setOpen = next => {
-    $searchOpen.set(next)
+    if (embedded) { if (!next) onClose() } else $searchOpen.set(next)
     if (!next) {
       setQuery('')
       setResults([])
@@ -2015,10 +2099,10 @@ function SpotifySearchDialog() {
     }
   }
 
-  return jsx(Dialog, {
+  return jsx(embedded ? ScreenPanel : Dialog, {
     open,
     onOpenChange: setOpen,
-    children: jsx(DialogContent, {
+    children: jsx(embedded ? 'div' : DialogContent, {
       className: 'max-w-lg gap-0 overflow-hidden p-0',
       children: jsxs('form', {
         onSubmit: submit,
@@ -2026,8 +2110,8 @@ function SpotifySearchDialog() {
           jsxs(DialogHeader, {
             className: 'border-b border-(--ui-stroke-secondary) px-4 py-3 text-left',
             children: [
-              jsx(DialogTitle, { children: 'Search Spotify' }),
-              jsx(DialogDescription, { children: 'Find a track, then click it to play.' })
+              jsx(embedded ? 'h2' : DialogTitle, { children: 'Search Spotify' }),
+              jsx(embedded ? 'p' : DialogDescription, { children: 'Find a track, then click it to play.' })
             ]
           }),
           jsxs('div', {
@@ -2051,6 +2135,7 @@ function SpotifySearchDialog() {
                 children: results.map(result =>
                   jsxs('button', {
                     'aria-label': `Play ${result.title} by ${result.artist}`,
+                    title: `Play ${result.title} by ${result.artist}`,
                     className: 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-(--ui-bg-hover)',
                     disabled: busy,
                     onClick: () => void playResult(result),
@@ -2108,10 +2193,11 @@ function SpotifyRightRail() {
 
 export default {
   id: PLUGIN_ID,
-  name: 'Spotify Player',
+  name: 'Spotify Retro Player',
   defaultEnabled: true,
   register(ctx) {
     pluginStorage = ctx.storage
+    openExternal = url => ctx.os.openExternal(url)
     pluginRest = (path, options) => ctx.rest(path, options)
     restControl = (action, argument) =>
       ctx.rest('/control', {
@@ -2119,20 +2205,9 @@ export default {
         body: { action, argument }
       })
 
-    ctx.register({
-      id: 'native-side-pocket',
-      area: 'panes',
-      title: 'Spotify',
-      data: {
-        placement: 'left',
-        collapsible: true,
-        dock: { pane: 'sessions', pos: 'bottom' },
-        height: '136px',
-        minHeight: '68px',
-        maxHeight: '520px'
-      },
-      render: () => jsx(SpotifyRightRail, {})
-    })
+    registerPlayerPane = contribution => ctx.register(contribution)
+    registeredPaneMode = null
+    updatePlayerPane(playerPreferences(pluginStorage?.get('playerPreferences')).mode)
 
     ctx.register({
       id: 'persistent-status',

@@ -1,0 +1,69 @@
+{
+  "source": "Actual plugin in Chromium; simulated backend, not live Spotify",
+  "results": [
+    {
+      "name": "Default FX: no effects toggle, painted ring, all hardware hover/focus/press treatments",
+      "status": "passed"
+    },
+    {
+      "name": "Lyrics: loading, missing, instrumental, network error/retry and no-track states are distinct",
+      "status": "passed"
+    },
+    {
+      "name": "Pane keeps authoritative playback fresh when footer is absent",
+      "status": "passed"
+    },
+    {
+      "name": "Account controls open connection inside screen when Spotify account is disconnected",
+      "status": "passed"
+    },
+    {
+      "name": "Transport and account buttons dispatch exact actions and synchronize confirmed states",
+      "status": "passed"
+    },
+    {
+      "name": "Screen tabs have keyboard selection and accurately expose selection while settings are open",
+      "status": "passed"
+    },
+    {
+      "name": "Lyrics fit narrow and normal screens, expose active line, and permit manual reading",
+      "status": "passed"
+    },
+    {
+      "name": "Settings and taste palette controls: persistence, curation, prompt selection and hover inventory",
+      "status": "passed"
+    },
+    {
+      "name": "Failed slider commands restore confirmed values and show an in-player error",
+      "status": "passed"
+    },
+    {
+      "name": "Playlist and search errors are not falsely reported as empty results",
+      "status": "passed"
+    },
+    {
+      "name": "View controls sit on top chrome rather than consuming the display",
+      "status": "passed"
+    },
+    {
+      "name": "Like response cannot overwrite the next song state",
+      "status": "passed"
+    },
+    {
+      "name": "Unavailable Liked Songs states and failed writes are honest and recoverable",
+      "status": "passed"
+    },
+    {
+      "name": "Top controls and their finish stay inset; side icons are consistently legible",
+      "status": "passed"
+    },
+    {
+      "name": "Settings is text-only and fully fits without scrolling",
+      "status": "passed"
+    },
+    {
+      "name": "Song play automatically paints authoritative liked/unliked state without a heart click",
+      "status": "passed"
+    }
+  ]
+}

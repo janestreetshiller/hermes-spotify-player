@@ -24,6 +24,99 @@ def make_client(api):
 
 
 class SpotifyPluginApiTests(unittest.TestCase):
+    def test_curate_creates_private_playlist_and_verifies_it(self):
+        import tempfile
+        import os
+        from unittest.mock import Mock
+        api = load_api_module()
+        uri = 'spotify:track:' + 'a' * 22
+        playlist = {'id':'b'*22, 'name':'Night drive', 'public':False, 'collaborative':False}
+        fake = Mock()
+        fake.request.side_effect = [playlist, {'snapshot_id':'v1'}, playlist,
+                                    {'items':[{'item':{'uri':uri}}], 'total':1, 'next':None}]
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'HERMES_HOME':home}), patch.object(api, 'SpotifyClient', return_value=fake):
+            body = {'action':'create', 'name':'Night drive', 'tracks':[uri], 'requestId':'test-private-1'}
+            response = make_client(api).post('/curate', json=body)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertTrue(response.json()['verified'])
+            self.assertEqual(response.json()['trackCount'], 1)
+            self.assertEqual(fake.request.call_args_list[0].args, ('POST','/me/playlists'))
+            self.assertEqual(fake.request.call_args_list[0].kwargs['json_body']['public'], False)
+            replay = make_client(api).post('/curate', json=body)
+            self.assertEqual(replay.json()['playlistId'], 'b'*22)
+            self.assertEqual(fake.request.call_count, 4, 'same request ID must not create twice')
+
+    def test_curate_preview_and_bulk_likes_are_verified(self):
+        from unittest.mock import Mock
+        api = load_api_module()
+        uri = 'spotify:track:' + 'a' * 22
+        fake = Mock()
+        fake.request.side_effect = [{'tracks':{'items':[{'uri':uri,'name':'Night','artists':[{'name':'Artist'}]}]}},
+                                    {}, [True]]
+        with patch.object(api, 'SpotifyClient', return_value=fake):
+            preview = make_client(api).post('/curate', json={'action':'preview','queries':['Artist Night']})
+            self.assertEqual(preview.status_code,200,preview.text)
+            self.assertEqual(preview.json()['results'][0]['candidates'][0]['uri'],uri)
+            liked = make_client(api).post('/curate', json={'action':'set-liked','tracks':[uri,uri],'saved':True})
+            self.assertTrue(liked.json()['verified'],liked.text)
+            self.assertEqual(liked.json()['trackCount'],1)
+            self.assertEqual(fake.request.call_args_list[-1].args,('GET','/me/library/contains'))
+
+    def test_curate_does_not_report_partial_creation_as_success(self):
+        import tempfile, os
+        from unittest.mock import Mock
+        api = load_api_module()
+        uri = 'spotify:track:' + 'a' * 22
+        fake = Mock()
+        fake.request.side_effect = [{'id':'b'*22}, RuntimeError('write refused')]
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'HERMES_HOME':home}), patch.object(api,'SpotifyClient',return_value=fake):
+            body={'action':'create','name':'Partial','tracks':[uri],'requestId':'partial-test'}
+            result=make_client(api).post('/curate',json=body).json()
+            self.assertFalse(result['ok'])
+            self.assertFalse(result['verified'])
+            self.assertEqual(result['playlistId'],'b'*22)
+            replay=make_client(api).post('/curate',json=body).json()
+            self.assertTrue(replay['replayed'])
+            self.assertEqual(fake.request.call_count,2)
+            conflict=make_client(api).post('/curate',json={**body,'name':'Different'})
+            self.assertEqual(conflict.status_code,409)
+
+    def test_curate_rejects_bad_identifiers_before_any_side_effect(self):
+        api=load_api_module()
+        with patch.object(api,'SpotifyClient') as client:
+            for tracks in [['spotify:track:short'],[' spotify:track:'+'a'*22],[],['spotify:track:'+'a'*22]*51]:
+                result=make_client(api).post('/curate',json={'action':'create','name':'Test','tracks':tracks,'requestId':'valid-request'})
+                self.assertEqual(result.status_code,400,result.text)
+            client.assert_not_called()
+
+    def test_plugin_exposes_one_shot_curation_tool(self):
+        from unittest.mock import Mock
+        path = Path(__file__).resolve().parents[1] / '__init__.py'
+        spec=importlib.util.spec_from_file_location('spotify_player_registration_test',path)
+        plugin=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(plugin)
+        ctx=Mock()
+        plugin.register(ctx)
+        definitions=[call.kwargs for call in ctx.register_tool.call_args_list]
+        self.assertEqual([d['name'] for d in definitions],['spotify_player_curate'])
+        self.assertEqual(definitions[0]['toolset'],'spotify')
+        self.assertIn('create',definitions[0]['schema']['parameters']['properties']['action']['enum'])
+
+    def test_curate_named_songs_resolves_exact_matches_before_create(self):
+        import tempfile, os
+        from unittest.mock import Mock
+        api=load_api_module()
+        uri='spotify:track:'+'a'*22
+        playlist={'id':'b'*22,'name':'Named mix','public':False,'collaborative':False}
+        fake=Mock()
+        fake.request.side_effect=[{'tracks':{'items':[{'uri':uri,'name':'Night','artists':[{'name':'Artist'}]}]}},
+            playlist,{},playlist,{'items':[{'item':{'uri':uri}}],'total':1,'next':None}]
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ,{'HERMES_HOME':home}),patch.object(api,'SpotifyClient',return_value=fake):
+            result=make_client(api).post('/curate',json={'action':'create','name':'Named mix','songs':[{'title':'Night','artist':'Artist'}],'requestId':'named-test'})
+            self.assertEqual(result.status_code,200,result.text)
+            self.assertTrue(result.json()['verified'],result.text)
+            self.assertEqual(fake.request.call_args_list[0].args,('GET','/search'))
+
     def test_current_hermes_imports_without_deprecated_compat(self):
         import warnings
         with warnings.catch_warnings():

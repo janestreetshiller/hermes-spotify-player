@@ -10,8 +10,8 @@
     "original position/playback restored; volume restored within one point"
   ],
   "uncachedSnapshotSamples": 5,
-  "uncachedSnapshotMedianMs": 186.97,
-  "childCpuSecondsAcrossSamples": 0.314,
-  "maxChildRssBytesMacOS": 31457280,
+  "uncachedSnapshotMedianMs": 152.34,
+  "childCpuSecondsAcrossSamples": 0.2241,
+  "maxChildRssBytesMacOS": 32145408,
   "caveat": "Helper costs only, not total Hermes/Spotify memory or battery measurements. Search/library OAuth not configured; not live-tested."
 }

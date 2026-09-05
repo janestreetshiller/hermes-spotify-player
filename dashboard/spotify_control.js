@@ -37,6 +37,7 @@ function run(argv) {
   const spotify = Application('Spotify')
 
   try {
+    const expectedState = action === 'play' ? 'playing' : action === 'pause' ? 'paused' : action === 'playpause' ? (String(spotify.playerState()) === 'playing' ? 'paused' : 'playing') : null
     if (action === 'open') {
       spotify.activate()
     } else if (action === 'playpause') {
@@ -68,7 +69,15 @@ function run(argv) {
       throw new Error(`Unknown action: ${action}`)
     }
 
-    return JSON.stringify({ ok: true, ...snapshot(spotify) })
+    // Apple events acknowledge dispatch before Spotify updates playerState.
+    // Publish only the read-back state so the UI cannot invert its next action.
+    let result = snapshot(spotify)
+    for (let attempt = 0; expectedState && result.state !== expectedState && attempt < 20; attempt++) {
+      delay(0.1)
+      result = snapshot(spotify)
+    }
+    if (expectedState && result.state !== expectedState) throw new Error('Spotify did not confirm the requested playback state. Please retry.')
+    return JSON.stringify({ ok: true, ...result })
   } catch (error) {
     return JSON.stringify({
       ok: false,

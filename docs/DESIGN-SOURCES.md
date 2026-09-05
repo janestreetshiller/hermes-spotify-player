@@ -1,5 +1,7 @@
 # Design provenance
 
+- Current marketing poster: user-supplied `Codex_Image_Sep_5_2026_12_40_36_AM_fdf1b4.png`, preserved as `docs/media/retro-poster-base.png`. Retro computer concept artwork, not live verification evidence. Original editorial composition in `docs/media/retro-poster.html`; portrait and landscape exports use the full supplied scene.
+
 - Nokie: inspected `desktop/src/styles.css` engaged-perimeter treatment; adapted finite focus glow using Hermes theme tokens instead of importing Nokie's application runtime. Current Nokie remote main at verification: `e5ddecb70e4084dcf675e593179ef1eda3ffe9f3`, desktop 0.1.0. Local Nokie changes preserved.
 - Existing repository compositions: `docs/media/hermes-spotify-announcement.png` and the prior player screenshot establish the dark editorial surface, product crop, restrained labeling and accent hierarchy. New editable composition: `docs/media/social-1.3.html`.
 - Web Design Factory: reused the editorial hero + feature strip composition pattern inspected in `outputs/nvidia-batch/hero-editorial-commerce.html`, `outputs/nvidia-throughput-batch/hero-minimal.html`, `widget-kpi-react.tsx`, and `stats-strip-react.tsx`. Reimplemented loading bars in small CSS, not a full React/effects dependency import.

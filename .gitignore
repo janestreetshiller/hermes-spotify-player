@@ -6,3 +6,9 @@ __pycache__/
 node_modules/
 .worktrees/
 .test-output/
+
+# Local desktop captures can contain unrelated chats; publish fixture evidence only.
+docs/evidence/ui-audit/live*.png
+docs/evidence/ui-audit/live.json
+docs/evidence/ui-audit/sizing-live*.png
+docs/evidence/ui-audit/*-failure.png
