@@ -18,8 +18,13 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
-      - name: Install Hermes Agent
-        run: python -m pip install 'hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@f159e581c7afd22a5c94652c569e3859f1b994d2'
+      - name: Install pinned Hermes source (editable; wheels unsupported)
+        run: |
+          git init "$RUNNER_TEMP/hermes-runtime"
+          git -C "$RUNNER_TEMP/hermes-runtime" remote add origin https://github.com/NousResearch/hermes-agent.git
+          git -C "$RUNNER_TEMP/hermes-runtime" fetch --depth=1 origin f159e581c7afd22a5c94652c569e3859f1b994d2
+          git -C "$RUNNER_TEMP/hermes-runtime" checkout --detach FETCH_HEAD
+          python -m pip install -e "$RUNNER_TEMP/hermes-runtime"
       - name: Run tests
         run: ./scripts/test.sh
       - name: Install demo tooling
