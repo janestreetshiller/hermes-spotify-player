@@ -2,7 +2,19 @@
 
 A native Spotify side pocket for [Hermes Desktop](https://hermes-agent.nousresearch.com/docs/user-guide/desktop) on macOS.
 
-![Hermes Spotify Player open beside a Hermes conversation](docs/media/hermes-spotify-player.png)
+## About
+
+![Hermes Spotify Player 1.3 — silver player with simulated playback](docs/media/player-1.3-social.png)
+
+### Current player photos
+
+| Add to playlist | Taste palette |
+| --- | --- |
+| ![Single-screen playlist picker with flat digital controls](docs/media/current-playlists.png) | ![Single-screen Taste palette with flat digital controls](docs/media/current-taste.png) |
+
+*Images show the 1.3 release candidate, using synthetic demo data—not a personal Spotify account. Menu screenshots are from the production renderer at `93f6e00`. The default-branch runtime remains the earlier release until PR #11 merges.*
+
+[Try the current interactive demo](https://janestreetshiller.github.io/hermes-spotify-player/demo/) · [Candidate and installation instructions](https://github.com/janestreetshiller/hermes-spotify-player/tree/feat/low-resource-nokie-player#install)
 
 It keeps playback inside the desktop workflow without embedding Spotify's Widevine-protected web player. Hermes controls the signed-in Spotify macOS app locally, while its scoped backend uses Hermes' existing Spotify PKCE connection for catalog and library actions.
 
