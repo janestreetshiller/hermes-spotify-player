@@ -1,5 +1,16 @@
 # Design provenance
 
+## Original player reference (authoritative)
+
+User research folder: `retro-player-GUI`. The cleanup follows the supplied silver expanded/compact player references, not invented Cassette, MiniDisc or Receiver skins:
+
+- `Codex Image Sep 4, 2026, 11_37_53 PM.png` — expanded silver frame, blue circular transport and capsule previous/next controls. SHA-256 `4d0040c915cfd9576f508ef15aafff262d034a75c0416ee944a754452512c78c`.
+- `Codex Image Sep 4, 2026, 11_40_34 PM.png` — compact silver transport reference. SHA-256 `6ad1c20559b203cffe83a63630ce9466f2bd13ce3dd51fd58bd5512e4d1415db`.
+
+These are reference inputs, not runtime bitmap assets or a claim of pixel-identical reproduction. Other researched UIs (Windows Media Player variants, QuickTime, jetAudio, etc.) remain future sampling work. No claim of endorsement or ownership of historic product designs is made.
+
+## Existing assets and effects
+
 - Current marketing poster: user-supplied `Codex_Image_Sep_5_2026_12_40_36_AM_fdf1b4.png`, preserved as `docs/media/retro-poster-base.png`. Retro computer concept artwork, not live verification evidence. Original editorial composition in `docs/media/retro-poster.html`; portrait and landscape exports use the full supplied scene.
 
 - Nokie: inspected `desktop/src/styles.css` engaged-perimeter treatment; adapted finite focus glow using Hermes theme tokens instead of importing Nokie's application runtime. Current Nokie remote main at verification: `e5ddecb70e4084dcf675e593179ef1eda3ffe9f3`, desktop 0.1.0. Local Nokie changes preserved.

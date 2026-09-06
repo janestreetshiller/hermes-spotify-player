@@ -102,7 +102,7 @@ await check('Top controls and their finish stay inset; side icons are consistent
   assert.ok(g.top>=10.9,'top buttons need an inset from the drawn chrome roof');assert.ok(g.bottom>=4,'button finish must clear the screen');assert.ok(g.width<=178,'top strip must be tighter');assert.equal(g.icons.length,6);for(const icon of g.icons){assert.ok(icon.svg,icon.label+' must use a recognizable vector icon');assert.ok(icon.size>=18,icon.label+' icon too small');assert.ok(icon.stroke>=2,icon.label+' icon too faint')}
   const containment=await shell(p).evaluate(e=>{
    const image=getComputedStyle(e).backgroundImage.slice(5,-2),xml=new DOMParser().parseFromString(decodeURIComponent(image.split(',')[1]),'image/svg+xml'),ctx=document.createElement('canvas').getContext('2d'),shape=new Path2D(xml.querySelectorAll('path')[1].getAttribute('d')),box=e.getBoundingClientRect(),scale=box.width/320;
-   return [...e.querySelectorAll('.spotify-view-tabs button,.spotify-side-controls button')].map(b=>{const q=b.getBoundingClientRect(),x=(q.x-box.x)/scale,y=(q.y-box.y)/scale,w=q.width/scale,h=q.height/scale,r=parseFloat(getComputedStyle(b).borderRadius),radius=Math.min(h/2,w/2,r),pad=b.closest('.spotify-view-tabs')?1:3;let inside=true;for(let i=0;i<72;i++){const a=i*Math.PI/36,cx=x+(Math.cos(a)>=0?w-radius:radius),cy=y+(Math.sin(a)>=0?h-radius:radius);inside&&=ctx.isPointInPath(shape,cx+Math.cos(a)*(radius+pad),cy+Math.sin(a)*(radius+pad))}return {label:b.ariaLabel,inside}})
+   return [...e.querySelectorAll('.spotify-view-tabs button,.spotify-side-controls button')].map(b=>{const q=b.getBoundingClientRect(),x=(q.x-box.x)/scale,y=(q.y-box.y)/scale,w=q.width/scale,h=q.height/scale,r=parseFloat(getComputedStyle(b).borderRadius),radius=Math.min(h/2,w/2,r),pad=3;let inside=true;for(let i=0;i<72;i++){const a=i*Math.PI/36,cx=x+(Math.cos(a)>=0?w-radius:radius),cy=y+(Math.sin(a)>=0?h-radius:radius);inside&&=ctx.isPointInPath(shape,cx+Math.cos(a)*(radius+pad),cy+Math.sin(a)*(radius+pad))}return {label:b.ariaLabel,inside}})
   });for(const c of containment)assert.ok(c.inside,c.label+' painted rim escapes inner frame')
   await shell(p).screenshot({path:`docs/evidence/ui-audit/tight-frame-${width}.png`})
  }
@@ -119,6 +119,29 @@ await check('Song play automatically paints authoritative liked/unliked state wi
  await scenario(p,'saved-status',{response:{ok:true,uri:b,saved:false}});await state(p,{spotifyUrl:b,title:'Not liked song',state:'playing',positionSeconds:0});const unliked=button(p,'Like current track');await unliked.waitFor();assert.equal(await unliked.getAttribute('aria-pressed'),'false');assert.equal(await unliked.locator('svg').getAttribute('fill'),'none');await shell(p).screenshot({path:'docs/evidence/ui-audit/auto-unliked.png'});
  assert.equal(await actionCount(p,'set-saved'),0,'playing a song must only read likes, never modify them');const reads=await p.evaluate(()=>window.demoCalls.filter(c=>c.action==='saved-status').map(c=>c.argument));assert.ok(reads.includes(a)&&reads.includes(b));
  await scenario(p,'/auth/status',{response:{ok:true,loggedIn:false,clientConfigured:false}});await p.evaluate(()=>window.demoRefreshAuth());const unknown=button(p,'Connect Spotify to use Liked Songs');await unknown.waitFor();assert.equal(await unknown.getAttribute('aria-pressed'),null);assert.equal(await unknown.locator('[data-like-indicator]').textContent(),'?');
+})
+await check('Side rings clear the chrome bevel and screen with mirrored, evenly spaced rows',async p=>{
+ for(const width of [234,280,340]){
+  await p.locator('.product').evaluate((e,w)=>e.style.width=w+'px',width);await p.waitForTimeout(180);
+  const geometry=await shell(p).evaluate(e=>{
+   const box=e.getBoundingClientRect(),scale=box.width/320,display=e.querySelector('.spotify-display').getBoundingClientRect();
+   const image=getComputedStyle(e).backgroundImage.slice(5,-2),xml=new DOMParser().parseFromString(decodeURIComponent(image.split(',')[1]),'image/svg+xml');
+   const path=new Path2D(xml.querySelectorAll('path')[1].getAttribute('d')),ctx=document.createElement('canvas').getContext('2d');
+   // The perimeter must leave 10px of chrome beyond the 3px painted rim,
+   // not merely stay inside the silhouette's bounding rectangle.
+   ctx.lineWidth=20;
+   return [...e.querySelectorAll('.spotify-side-controls')].map((stack,side)=>[...stack.querySelectorAll('button')].map(b=>{
+    const r=b.getBoundingClientRect(),cx=(r.x+r.width/2-box.x)/scale,cy=(r.y+r.height/2-box.y)/scale,radius=r.width/scale/2+3;
+    let clear=true;
+    for(let i=0;i<144;i++){const a=i*Math.PI/72,x=cx+Math.cos(a)*radius,y=cy+Math.sin(a)*radius;clear&&=ctx.isPointInPath(path,x,y)&&!ctx.isPointInStroke(path,x,y)}
+    const screenGap=side===0?(display.left-box.x)/scale-cx-radius:cx-radius-(display.right-box.x)/scale;
+    return {label:b.ariaLabel,cx,cy,clear,screenGap};
+   }));
+  });
+  assert.equal(geometry.length,2);
+  for(const stack of geometry){assert.equal(stack.length,3);for(const b of stack){assert.ok(b.clear,b.label+' crowds the chrome bevel');assert.ok(b.screenGap>=3.9,b.label+' crowds the screen')};assert.ok(Math.abs((stack[1].cy-stack[0].cy)-(stack[2].cy-stack[1].cy))<0.1,'row centers must be evenly spaced')}
+  for(let i=0;i<3;i++){assert.ok(Math.abs(geometry[0][i].cy-geometry[1][i].cy)<0.1);assert.ok(Math.abs(geometry[0][i].cx+geometry[1][i].cx-320)<0.1)}
+ }
 })
 // AUDIT CASES
 }finally{await writeFile('docs/evidence/ui-audit/results.json',JSON.stringify({source:'Actual plugin in Chromium; simulated backend, not live Spotify',results},null,2));await browser.close();server.close()}

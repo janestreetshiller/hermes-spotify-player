@@ -11,6 +11,7 @@ It keeps playback inside the desktop workflow without embedding Spotify's Widevi
 ## Features
 
 - One-click **screen-on / screen-off**, each auto-fitted to its scaled shell and host header
+- Original silver player with full, screen-off and compact mini modes; proportion-preserving frame sizing
 - Three persistent finishes: Classic chrome, Ice blue, and Graphite; text-only settings that fit without scrolling
 - Artwork, themed lyrics, or an XP-style ambient visualizer inside the display
 - Play/pause, previous, next, seek, and volume controls

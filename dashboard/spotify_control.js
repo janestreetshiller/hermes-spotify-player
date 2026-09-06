@@ -38,6 +38,8 @@ function run(argv) {
 
   try {
     const expectedState = action === 'play' ? 'playing' : action === 'pause' ? 'paused' : action === 'playpause' ? (String(spotify.playerState()) === 'playing' ? 'paused' : 'playing') : null
+    let expectedVolume = null, expectedPosition = null
+    const initialUri = ['seek','volume'].includes(action) ? snapshot(spotify).spotifyUrl : null
     if (action === 'open') {
       spotify.activate()
     } else if (action === 'playpause') {
@@ -53,12 +55,14 @@ function run(argv) {
     } else if (action === 'volume') {
       const nextVolume = Number(argv[1])
       if (!Number.isFinite(nextVolume) || nextVolume < 0 || nextVolume > 100) throw new Error('Invalid volume')
-      spotify.soundVolume = Math.round(nextVolume)
+      expectedVolume = Math.round(nextVolume)
+      spotify.soundVolume = expectedVolume
     } else if (action === 'seek') {
       const seconds = Number(argv[1])
       if (!Number.isFinite(seconds) || seconds < 0 || seconds > 86400) throw new Error('Invalid seek position')
       const duration = Number(safe(() => spotify.currentTrack().duration(), 0)) / 1000
-      spotify.playerPosition = duration > 0 ? Math.min(seconds, Math.max(0, duration - 0.1)) : seconds
+      expectedPosition = duration > 0 ? Math.min(seconds, Math.max(0, duration - 0.1)) : seconds
+      spotify.playerPosition = expectedPosition
     } else if (action === 'play-uri') {
       const uri = String(argv[1] || '')
       if (!/^spotify:(track|album|playlist|artist|episode|show):[A-Za-z0-9]+$/.test(uri)) {
@@ -72,11 +76,16 @@ function run(argv) {
     // Apple events acknowledge dispatch before Spotify updates playerState.
     // Publish only the read-back state so the UI cannot invert its next action.
     let result = snapshot(spotify)
-    for (let attempt = 0; expectedState && result.state !== expectedState && attempt < 20; attempt++) {
+    // Spotify's native volume can quantize by one point; seek read-back can
+    // advance during playback. Always return the observed value, never the draft.
+    const confirmed = value => (!expectedState || value.state === expectedState)
+      && (expectedVolume === null || Math.abs(value.volume - expectedVolume) <= 1)
+      && (expectedPosition === null || (value.spotifyUrl === initialUri && Math.abs(value.positionSeconds - expectedPosition) <= 1))
+    for (let attempt = 0; !confirmed(result) && attempt < 20; attempt++) {
       delay(0.1)
       result = snapshot(spotify)
     }
-    if (expectedState && result.state !== expectedState) throw new Error('Spotify did not confirm the requested playback state. Please retry.')
+    if (!confirmed(result)) throw new Error('Spotify did not confirm the requested playback state or slider value. Please retry.')
     return JSON.stringify({ ok: true, ...result })
   } catch (error) {
     return JSON.stringify({

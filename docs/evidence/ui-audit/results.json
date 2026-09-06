@@ -64,6 +64,10 @@
     {
       "name": "Song play automatically paints authoritative liked/unliked state without a heart click",
       "status": "passed"
+    },
+    {
+      "name": "Side rings clear the chrome bevel and screen with mirrored, evenly spaced rows",
+      "status": "passed"
     }
   ]
 }

@@ -31,7 +31,7 @@ test('library and search operations do not overwrite native playback snapshots',
  const {s,calls,writes}=load(async()=>({ok:true,results:[],saved:true}));for(const action of ['search','saved-status','set-saved','playlists','playlist-add','lyrics'])await s.runNativeSpotify(action,'payload');assert.equal(writes.length,0);assert.equal(calls.length,6)
 })
 test('faceplate scales uniformly and bounds narrow docks instead of crushing controls',()=>{
- const {s}=load();for(const width of [100,234,280,320,640]){const scale=s.retroPlayerScale(width);assert.ok(scale>=234/320&&scale<=1);assert.equal(320*scale/(280*scale),8/7)}
+ const {s}=load();for(const width of [100,234,280,320,640]){const scale=s.retroPlayerScale(width);assert.equal(scale,Math.min(1,width/320));assert.equal(320*scale/(280*scale),8/7)}
 })
 test('timeline interpolation advances only playing tracks and stops at duration',()=>{
  const {s}=load();assert.equal(s.nextTimelinePosition({state:'playing',positionSeconds:111.2,durationMs:219000}),112);assert.equal(s.nextTimelinePosition({state:'paused',positionSeconds:112,durationMs:219000}),112);assert.equal(s.nextTimelinePosition({state:'playing',positionSeconds:219,durationMs:219000}),219)

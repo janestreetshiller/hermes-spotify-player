@@ -1,0 +1,21 @@
+{
+  "source": "Production plugin in Chromium; simulated Spotify backend",
+  "geometryCases": 144,
+  "models": [
+    "chrome",
+    "ice",
+    "graphite"
+  ],
+  "checks": [
+    "exact aspect ratio",
+    "zero 12-frame layout drift",
+    "no hardware overlap or overflow",
+    "2x DPR and 80–175% zoom",
+    "mini settings reopening and metadata fit",
+    "finish persistence",
+    "transport, search selection, likes, playlist dispatch on every finish",
+    "45 collapse/expand cycles",
+    "collapsed error/slider rollback"
+  ],
+  "errors": []
+}

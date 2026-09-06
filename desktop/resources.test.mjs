@@ -17,11 +17,13 @@ test('decorative GPU work requires explicit consent, visibility, playback and mo
   assert.equal(s.signalAllowed(true, true, false, false), false)
   assert.equal(s.signalAllowed(true, true, true, true), false)
 })
-test('shell settings accept only the two modes and bundled skins', () => {
+test('shell settings accept the supported modes, bundled skins, and visualizer styles', () => {
   const s = load()
   assert.equal(typeof s.playerPreferences, 'function')
-  assert.equal(JSON.stringify(s.playerPreferences({mode:'off',skin:'ice',view:'lyrics'})), JSON.stringify({mode:'off',skin:'ice',view:'lyrics'}))
-  assert.equal(JSON.stringify(s.playerPreferences({mode:'tiny',skin:'url(evil)',view:'bad'})), JSON.stringify({mode:'on',skin:'chrome',view:'artwork'}))
+  assert.equal(s.playerPreferences({model:'minidisc'}).model,undefined,'rejected invented models must not survive preference migration')
+  assert.equal(JSON.stringify(s.playerPreferences({mode:'off',skin:'ice',view:'lyrics',visualizer:'waves'})), JSON.stringify({mode:'off',skin:'ice',view:'lyrics',visualizer:'waves'}))
+  assert.equal(JSON.stringify(s.playerPreferences({mode:'mini',skin:'graphite',view:'visualizer',visualizer:'grid'})), JSON.stringify({mode:'mini',skin:'graphite',view:'visualizer',visualizer:'grid'}))
+  assert.equal(JSON.stringify(s.playerPreferences({mode:'tiny',skin:'url(evil)',view:'bad',visualizer:'x'})), JSON.stringify({mode:'on',skin:'chrome',view:'artwork',visualizer:'ribbons'}))
 })
 
 test('screen-off releases the actual contributed pane height, not just its child', () => {
@@ -43,6 +45,9 @@ test('screen-off releases the actual contributed pane height, not just its child
   assert.equal(panes.get('native-side-pocket').data.height, `${Math.ceil(280*234/320)+28}px`)
   s.updatePlayerPane('off',234/320,28)
   assert.equal(panes.get('native-side-pocket').data.height, `${Math.ceil(112*234/320)+28}px`)
+  s.updatePlayerPane('mini',234/320,28)
+  assert.equal(panes.get('native-side-pocket').data.height, `${Math.ceil(88*234/320)+28}px`)
+  assert.equal(panes.get('native-side-pocket').render,original.render)
   assert.equal(panes.size,3,'never add another pane or reset the layout')
 })
 

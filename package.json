@@ -6,6 +6,7 @@
   "scripts": {
     "test": "bash scripts/test.sh",
     "demo:build": "node scripts/build-demo.mjs",
+    "test:stress": "node scripts/build-demo.mjs && node scripts/player-stress.mjs",
     "test:browser": "node scripts/build-demo.mjs && node scripts/browser-test.mjs && node scripts/ui-audit.mjs",
     "test:live-ui": "python3 scripts/live-ui-smoke.py",
     "demo:media": "node scripts/render-media.mjs",

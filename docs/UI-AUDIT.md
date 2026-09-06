@@ -6,7 +6,7 @@ The edited default-profile plugin is installed through the existing source links
 
 ## Measured control sizing
 
-The sizing sweep uses the actual inner SVG silhouette, bounded painted rims, display clearance, a maximum 180px top-strip span, and at least 192px display width. Selected native sizes: top buttons 56×24px with 4px gaps and 11px labels; side buttons 30×30px with 18px vector icons and 8px gaps. Side centers are inset to x=43/277, leaving a 194px display. These are the largest feasible candidates under those explicit compact-player constraints, not universal touch-target sizes. `scripts/button-sizing.mjs` records the sweep; the UI audit samples button/rim perimeters against the real SVG inner path at 234, 280, and 340px widths. Live Hermes rendering was also inspected.
+Current native sizes: top tabs 52×22px, 8px gaps, 9px labels and bounded 3px rims; side buttons 26/30/26px with 18/20/18px vector icons. Mirrored side centers are x=52/268; the display spans x=78–242. Previous/next controls are 36×22px capsules in full mode. These are compact-player sizes, not universal touch targets. The UI audit samples painted rims against the actual SVG inner path at 234, 280 and 340px outer widths and checks 10px bevel clearance. `scripts/button-sizing.mjs` is an earlier exploratory sweep, not the current layout specification. Earlier live Hermes observations are historical; see [current release evidence](PLAYER-CLEANUP.md).
 
 ## Latest settings and liked-state checks
 
@@ -49,8 +49,8 @@ An automatic song-start test supplies already-liked and unliked responses for di
 
 ## Executed verification
 
-- `npm test` with the Hermes Python environment: **15 JavaScript tests and 25 Python tests passed**, plus installer/resource checks.
-- `npm run test:browser`: existing browser regression suite passed, including its 27 width/height/zoom geometry combinations; **16 additional UI audits passed**.
+- `npm test` with the Hermes Python environment: **19 JavaScript tests and 25 Python tests passed**, plus installer/resource checks.
+- `npm run test:browser`: existing browser regression suite passed, including its 27 width/height/zoom geometry combinations; **17 additional UI audits passed**.
 - `npm run test:live-ui`: real installed Hermes UI → scoped plugin REST → osascript → real Spotify. Pause and Play both confirmed; embedded connection opened and closed. Playback state restored.
 - `python scripts/native-smoke.py` with the Hermes Python environment: real native pause, seek, volume, and restoration checks passed.
 - `git diff --check`: passed.

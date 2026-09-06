@@ -6,6 +6,11 @@ __pycache__/
 node_modules/
 .worktrees/
 .test-output/
+# Temporary runtime link while the separate TERMIN8 prototype is still open.
+/terminal
+/_contain.mjs
+/_pos.mjs
+/scripts/screenshot.mjs
 
 # Local desktop captures can contain unrelated chats; publish fixture evidence only.
 docs/evidence/ui-audit/live*.png

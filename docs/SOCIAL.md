@@ -2,6 +2,14 @@
 
 ![Good work. Great music.](media/retro-social.png)
 
+## Cleanup release caption
+
+Same silver player. A cleaner fit.
+
+Hermes Spotify Player now keeps its frame in proportion across full, screen-off and mini modes, with better-spaced chrome controls and clearer error feedback. Built for the Hermes Desktop sidebar on macOS.
+
+This is a refinement of the original player—not a new historic-player collection. Demo playback is simulated; live account-dependent search, likes and playlist verification still require Spotify authorization. TERMIN8 is a separate project.
+
 ## Short post
 
 Good work. Great music.
@@ -36,5 +44,7 @@ The supplied base is the user's retro Compaq desk artwork. It is **concept art**
 Alt text: “Good work. Great music. Hermes Spotify Player poster on cream paper with orange and black condensed lettering. A Compaq CRT shows Hermes and a silver player, surrounded by beige speakers, a computer and a keyboard on a warm wooden desk.”
 
 Rebuild from the repository root with `npm run poster:render`. The renderer uses local assets and checks image decoding, page errors, bounds and content separation. Typography uses Impact when installed (macOS render); other systems may use the declared fallback. Committed PNGs are the canonical exports.
+
+Automation: `Spotify player marketing assets` builds the production-rendered fixture demo, video and poster and uploads a reviewable artifact on relevant pushes or manual dispatch. It does not post to a social account.
 
 Publication status: assets and copy included in the repository and PR. Not posted to any social account; no destination/account was specified. GitHub Pages is already configured to publish `/docs` from `feat/low-resource-nokie-player`; the live social image and demo HTML were fetched and matched these committed files.
