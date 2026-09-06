@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "bash scripts/test.sh",
+    "test:mix-desk": "node scripts/test-mix-desk.mjs",
     "demo:build": "node scripts/build-demo.mjs",
     "test:stress": "node scripts/build-demo.mjs && node scripts/player-stress.mjs",
     "test:browser": "node scripts/build-demo.mjs && node scripts/browser-test.mjs && node scripts/ui-audit.mjs && node scripts/audio-test.mjs && node scripts/focus-motion-test.mjs && node scripts/style-test.mjs && node scripts/menu-test.mjs",

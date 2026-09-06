@@ -124,6 +124,28 @@ hermes plugins disable spotify-player
 hermes plugins remove spotify-player
 ```
 
+## Interactive playlist skills
+
+Install the reviewed local pack from this checkout:
+
+```bash
+python3 scripts/install-skills.py
+```
+
+The installer targets the active `HERMES_HOME`, refuses conflicting existing skills, and never changes auth or restarts Hermes; open a fresh chat for slash-command discovery.
+
+| Skill | What it does |
+|---|---|
+| `/my-mix` | Blends familiar songs and discoveries around your mood. |
+| `/new-tracks` | Finds songs beyond your checked rotation, or verified recent releases. |
+| `/my-favorites` | Re-shapes a verified saved-song source without changing your favorites. |
+
+A three-step **Mix Desk** quiz tunes emotional destination, listening scene, sonic texture, orbit distance and energy arc; it returns an editable tracklist before explicit private-playlist creation. Song clicks inspect details **inside Hermes**, not in Spotify. No autoplay or library mutation is implied. Add `dry run` to any skill to keep every Spotify action read-only.
+
+The skills share the renderer under `skills/my-mix`; install the whole pack together. They use the existing `spotify_player_curate` tool and portable HTML/Python, with text-question fallback on non-desktop surfaces; the player plugin itself remains macOS-only. They add no core Hermes tool, local model server, new OAuth flow, or player redesign.
+
+[Workflow and data contract](skills/my-mix/references/workflow.md) · [Dry-run and easing/padding QA](docs/SKILL-PACK-QA.md) · [Agent instructions](AGENTS.md) · [Claude instructions](CLAUDE.md)
+
 ## Development and tests
 
 ```bash
