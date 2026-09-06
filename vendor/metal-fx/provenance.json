@@ -2,7 +2,7 @@
   "package": "metal-fx",
   "version": "1.0.4",
   "repository": "https://github.com/Jakubantalik/metal-fx",
-  "artifactLibrary": "https://metal-mini.tail8a000f.ts.net:8465/?surface=artifact-library",
+  "artifactLibrary": "Alloy artifact review; private endpoint intentionally omitted",
   "librarySource": "desktop/src/ArtifactLibrary.jsx",
   "libraryRevision": "5efc351",
   "sha256": "05c694abd7a4a9323e96dd53f6d8c866dd676b012a4eee65e7576530683c22fa"

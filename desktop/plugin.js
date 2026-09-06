@@ -730,14 +730,47 @@ const $authOpen = atom(false)
 const $libraryRevision = atom(0)
 let pluginRest = null
 let pluginStorage = null
+// Optional standalone-host preference seam; Hermes otherwise follows the OS.
+let hostPreferences = null
 let restControl = null
 let openExternal = null
 let registerPlayerPane = null
 let registeredPaneMode = null
 const renderPlayerPane = () => jsx(SpotifyRightRail, {})
 
-function updatePlayerPane(mode, scale = 1, chromeHeight = 0) {
-  const height = `${Math.ceil((mode === 'off' ? 112 : mode === 'mini' ? 88 : 280) * scale + chromeHeight)}px`
+const PLAYER_STYLES = [
+  {id:'silver',label:'Silver reference'},
+  {id:'quicktime',label:'QuickTime reference'},
+  {id:'wmp-curved',label:'WMP curved frame'},
+  {id:'handheld',label:'Blue/green handheld reference'},
+  {id:'droplet',label:'Blue droplet reference'},
+  {id:'wmp-classic',label:'WMP classic application'},
+  {id:'wmp-glass',label:'WMP glass tabs'},
+  {id:'jetaudio',label:'jetAudio deck'},
+  {id:'organic',label:'Green organic reference'},
+  {id:'dark-playlist',label:'Dark playlist window'},
+  {id:'wmp-library',label:'WMP library reference'}
+]
+const WIDE_PLAYER_STYLES = ['wmp-classic','wmp-glass','organic','dark-playlist','wmp-library']
+
+function playerFrameWidth(style, scale = 1, availableWidth = 320) {
+  if (WIDE_PLAYER_STYLES.includes(style)) return Math.min(720, Math.max(1, availableWidth))
+  return style === 'handheld' ? Math.min(240, 320 * scale) : 320 * scale
+}
+
+function playerFrameHeight(mode, scale = 1, style = 'silver', availableWidth = 320) {
+  // The QuickTime reference is a rectangular movie window, not a recolored
+  // silver object. Its controls retain logical-pixel size as the movie resizes.
+  if (WIDE_PLAYER_STYLES.includes(style)) return mode === 'on' ? Math.round(playerFrameWidth(style,scale,availableWidth) * .55) + 102 : mode === 'mini' ? 76 : 92
+  if (style === 'handheld') return mode === 'on' ? Math.round(playerFrameWidth(style,scale) * .65) + 168 : mode === 'mini' ? 142 : 158
+  if (style === 'jetaudio') return mode === 'on' ? Math.round((320 * scale - 8) * .75) + 112 : mode === 'mini' ? 86 : 102
+  if (style === 'droplet') return mode === 'on' ? Math.round(320 * scale * .7) + 152 : mode === 'mini' ? 96 : 112
+  if (style !== 'silver') return mode === 'on' ? Math.round((320 * scale - 8) * .75) + 102 : mode === 'mini' ? 76 : 92
+  return mode === 'mini' ? Math.max(70,88*scale) : (mode === 'off' ? 112 : 280) * scale
+}
+
+function updatePlayerPane(mode, scale = 1, chromeHeight = 0, style = 'silver', availableWidth = 320) {
+  const height = `${Math.ceil(playerFrameHeight(mode, scale, style, availableWidth) + chromeHeight)}px`
   const signature = `${mode}:${height}`
   if (!registerPlayerPane || registeredPaneMode === signature) return
   registeredPaneMode = signature
@@ -880,6 +913,7 @@ const PLAYER_CSS = `
 .spotify-loader i:nth-child(2){animation-delay:.15s}.spotify-loader i:nth-child(3){animation-delay:.3s}
 @keyframes spotify-loader-step{from{transform:scaleY(.35);opacity:.4}to{transform:scaleY(1);opacity:1}}
 .spotify-surface[data-visible=false],.spotify-surface[data-visible=false] *{animation:none!important}
+.spotify-surface[data-reduced-motion=true],.spotify-surface[data-reduced-motion=true] *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 @media(prefers-reduced-motion:reduce){.spotify-surface,.spotify-loader i{animation:none!important}.spotify-surface *{scroll-behavior:auto!important;transition:none!important}}
 /* Two physical shells; all fixtures are inset from the drawn silhouette. */
 .spotify-surface[data-skin=retro-chrome]{display:block;padding:0}
@@ -888,9 +922,9 @@ const PLAYER_CSS = `
 .spotify-surface[data-finish=graphite]{--lcd-a:#657976;--lcd-b:#a9b7a6;--lcd-ink:#102d28;--glass:#111c24;--lyric:#b9cec0;--lyric-active:#fff}
 .spotify-surface[data-finish=ice] .spotify-display{border-color:#6188aa}
 .spotify-surface[data-finish=graphite] button{background:radial-gradient(ellipse at 35% 17%,#f4fbff,#b1c1cb 40%,#667782 75%,#c6d5dc)}
-.spotify-upper{position:absolute;left:34px;right:34px;top:40px;height:155px;grid-template-columns:36px minmax(0,1fr) 36px;gap:8px}
-.spotify-side-controls{justify-content:space-evenly;align-items:center;padding:2px 0 12px;gap:8px;transform:translateX(4px)}
-.spotify-display+.spotify-side-controls{transform:translateX(-4px)}
+.spotify-upper{position:absolute;left:19px;right:19px;top:40px;height:155px;grid-template-columns:40px minmax(0,1fr) 40px;gap:10px}
+.spotify-side-controls{justify-content:flex-end;align-items:center;padding:0;gap:8px;transform:translateX(10px)}
+.spotify-display+.spotify-side-controls{transform:translateX(-10px)}
 .spotify-display{border-radius:21px 21px 10px 10px;position:relative}
 .spotify-screen{background:var(--glass)}
 .spotify-lcd{background:linear-gradient(100deg,var(--lcd-a),var(--lcd-b) 58%,var(--lcd-a));color:var(--lcd-ink)}
@@ -898,9 +932,7 @@ const PLAYER_CSS = `
 .spotify-view-tabs button{display:inline-flex;align-items:center;justify-content:center;gap:3px;width:52px;min-width:52px;height:22px;min-height:22px;border-radius:8px;font-size:9px;font-weight:600;letter-spacing:.1px;color:#173c51;box-shadow:inset 0 1px #fff,0 1px 1px #4e6577}
 .spotify-tab-label{display:inline-flex;align-items:center;gap:3px}
 .spotify-view-tabs button svg{width:11px;height:11px}
-.spotify-side-controls button{color:#173c51;width:28px;min-width:28px;height:28px;min-height:28px}
-.spotify-side-controls>button:first-child,.spotify-side-controls>button:last-child{width:26px;min-width:26px;height:26px;min-height:26px}
-.spotify-side-controls>button:nth-child(2){width:30px;min-width:30px;height:30px;min-height:30px}
+.spotify-side-controls button{color:#173c51;width:24px;min-width:24px;height:24px;min-height:24px}
 .spotify-side-controls button svg{width:18px;height:18px}
 .spotify-side-controls>button:nth-child(2) svg{width:20px;height:20px}
 .spotify-off-actions button svg{width:18px;height:18px}
@@ -959,7 +991,7 @@ const PLAYER_CSS = `
 .spotify-lyrics-message{min-width:0;overflow-wrap:anywhere}
 .spotify-surface .spotify-follow{width:auto;height:20px;min-height:20px;flex-shrink:0;border-radius:4px;font-size:9px;line-height:1.3;margin:2px 7px}
 .spotify-lyrics:focus-visible{outline:2px solid #7dd9ff;outline-offset:-2px}
-.spotify-visualizer{position:relative;flex:1;min-height:0;overflow:hidden;background:#020916}.spotify-visualizer canvas{display:block;width:100%;height:100%}.spotify-visualizer small{position:absolute;bottom:4px;right:6px;color:#bdd8f0;font:7px Tahoma,sans-serif;letter-spacing:1px}
+.spotify-visualizer{position:relative;flex:1;min-height:0;overflow:hidden;background:#020916}.spotify-visualizer canvas{display:block;width:100%;height:100%}.spotify-audio-prompt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:6px 8px;background:#02101fee;color:#c9e2f3;text-align:center;font:10px/1.3 Tahoma,sans-serif;overflow:auto}.spotify-audio-prompt p{margin:0;font-size:9px;overflow-wrap:anywhere}.spotify-audio-prompt button,.spotify-audio-status button{flex-shrink:0;width:auto;min-width:0;height:20px;min-height:20px;white-space:nowrap;box-shadow:none;border:1px solid #5289ad;border-radius:3px;background:#123451;color:#d9f3ff;padding:3px 7px;font:9px Tahoma,sans-serif;cursor:pointer}.spotify-audio-prompt button:disabled{opacity:.5;cursor:default}.spotify-audio-status{position:absolute;bottom:3px;left:5px;right:5px;display:flex;align-items:center;justify-content:space-between;color:#bdd8f0;font:7px Tahoma,sans-serif;letter-spacing:1px}.spotify-audio-status button{height:16px;min-height:16px;padding:1px 4px;font-size:8px;letter-spacing:0}.spotify-audio-prompt button:focus-visible,.spotify-audio-status button:focus-visible{outline:2px solid #b7eaff;outline-offset:1px}
 .spotify-lyrics [data-active=true]{color:var(--lyric-active);font-weight:bold;text-shadow:0 0 8px #ace5ba66}
 
 /* Shared hardware finish: no FX mode, no perpetual CSS animation. */
@@ -983,15 +1015,22 @@ const PLAYER_CSS = `
 .spotify-panel>div{max-width:100%;overflow:visible;padding:0;display:block}
 .spotify-panel header{padding:0 22px 4px 0;border:0}.spotify-panel h2{font:600 11px/1.4 Tahoma,sans-serif;margin:0}.spotify-panel p{font-size:10px;margin:3px 0;padding:0;overflow-wrap:anywhere}
 .spotify-panel div,.spotify-panel span{min-width:0}
-.spotify-panel .spotify-panel-close{position:sticky;float:right;top:0;z-index:3;width:20px;min-width:20px;height:20px;min-height:20px;font-size:12px}
-.spotify-panel button:not(.spotify-panel-close){width:100%;height:auto;min-height:25px;border-radius:5px;padding:4px;white-space:normal;text-align:left;font:10px/1.35 Tahoma,sans-serif}
+.spotify-panel .spotify-panel-close{position:sticky;float:right;top:0;z-index:3;width:20px;min-width:20px;height:20px;min-height:20px;font-size:12px;border:1px solid #477998;border-radius:3px;background:#123951;color:var(--lyric);box-shadow:none}
+.spotify-panel button:not(.spotify-panel-close){width:100%;height:auto;min-height:25px;border-radius:5px;padding:4px;white-space:normal;text-align:left;font:10px/1.35 Tahoma,sans-serif;color:var(--lyric);background:#123951;border:1px solid #477998;box-shadow:none}
 .spotify-panel input{box-sizing:border-box;width:100%;min-width:0;background:#e7f4f6;color:#133646;border:1px solid #829cab;border-radius:4px;padding:4px;font:11px Tahoma,sans-serif}
 .spotify-panel form>div,.spotify-panel header+div{padding:4px 0}
 .spotify-panel img{width:28px;height:28px;object-fit:cover}
 .spotify-panel code{font-size:9px;white-space:normal;overflow-wrap:anywhere}
 .spotify-panel a{color:#bae9ff}
 .spotify-panel button span{white-space:normal;overflow-wrap:anywhere}
+.spotify-panel button:active:not(:disabled){box-shadow:inset 0 1px 3px #0008}
 .spotify-panel :focus-visible{outline:2px solid #70d5ff;outline-offset:-2px}
+.spotify-panel.spotify-playlist-host{overflow:hidden;display:flex}.spotify-playlist-host .spotify-panel-close{position:absolute;right:3px;top:3px;float:none}
+.spotify-panel>.spotify-playlist-panel{display:flex;flex:1;flex-direction:column;gap:3px;min-height:0;overflow:hidden}.spotify-playlist-panel header{padding:0 20px 0 0;flex-shrink:0}
+.spotify-panel .spotify-playlist-track{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;line-height:12px;flex-shrink:0}
+.spotify-playlist-panel>input{height:20px;padding:2px 4px;flex-shrink:0;font-size:10px}.spotify-playlist-panel .spotify-playlist-rows{min-height:28px;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:0;scrollbar-width:thin}
+.spotify-playlist-error{flex:1;min-height:0;overflow:auto}
+.spotify-playlist-rows button{display:block;margin:1px 0;background:#17466933;border:1px solid #81bfe522}.spotify-panel .spotify-playlist-rows button span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .spotify-taste button{width:auto;height:auto;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
 /* Bounded rims: painted geometry stays within the actual SVG inner frame. */
 .spotify-surface .spotify-view-tabs button{border-width:1px;box-shadow:inset 0 1px #fff,inset 0 -1px #56788a,0 0 0 2px #ecf6f8,0 0 0 3px #79939f}
@@ -999,6 +1038,191 @@ const PLAYER_CSS = `
 .spotify-surface .spotify-side-controls button{box-shadow:inset 0 1px 1px #fff,inset 0 -2px 2px #43627880,0 0 0 2px #ecf6f8,0 0 0 3px #79939f}
 .spotify-surface .spotify-side-controls button[aria-pressed=true]{box-shadow:inset 0 1px #fff,inset 0 -2px 3px #1c83af99,0 0 0 2px #e6ffff,0 0 0 4px #729cb0,0 0 5px #61cef080}
 
+/* Reference layout selector: finishes remain a separate setting. */
+.spotify-settings .spotify-style-heading{display:flex;align-items:center;gap:5px;min-height:16px;letter-spacing:0;text-transform:none}
+.spotify-style-heading select{flex:1;min-width:0;height:16px;padding:0 2px;border:1px solid #62818e;border-radius:2px;color:var(--lyric);background:#133247;font:10px Tahoma,sans-serif}
+.spotify-mode-legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+/* Curved WMP reference 4ab0…: raised utility shoulder, rectangular aperture,
+   full-width scrub, left transport bank and right volume. */
+.spotify-surface.spotify-surface.spotify-reference-wmp-curved{border-radius:22px 5px 17px 23px;background:linear-gradient(135deg,#f5f7fe,#8d9dcc 14%,#d4ddf8 32%,#8799c7 75%,#e1e7ff);box-shadow:inset 0 0 0 2px #e9edff,inset 0 0 0 4px #8995b6}
+.spotify-surface.spotify-reference-wmp-curved .qt-titlebar{margin-left:28%;border-radius:12px 3px 0 0;background:linear-gradient(#eff4ff,#a3b4dc)}
+.spotify-reference-wmp-curved .qt-title-studs{display:none}
+.spotify-reference-wmp-curved .qt-tools{border:0;background:transparent}
+.spotify-surface.spotify-reference-wmp-curved .qt-movie{margin:0 7px;border:2px solid #d8e1ff;box-shadow:0 0 0 2px #667799}
+.spotify-reference-wmp-curved .qt-bottom{grid-template-columns:auto minmax(24px,1fr) 24px;border-radius:0;background:linear-gradient(#f6f7ff,#a3b5e0)}
+.spotify-reference-wmp-curved .qt-transport{order:-1}
+.spotify-reference-wmp-curved .qt-main-play{order:-1}
+.spotify-reference-wmp-curved .qt-volume{justify-self:end}
+.spotify-reference-wmp-curved .qt-scrub{background:linear-gradient(#f8fbff,#c4ceeb);margin:0 5px}
+/* Handheld reference 4c917…: narrow blue body, upper screen and an actual
+   concentric directional control bank in its green lower housing. */
+.spotify-surface.spotify-surface.spotify-reference-handheld{grid-template-rows:20px 28px minmax(0,1fr) 16px 100px;border:2px solid #667d93;border-radius:25px 25px 42% 42%/28px 28px 36px 36px;background:linear-gradient(110deg,#8da9bd,#203d88 17%,#314c9a 75%,#7997ac);box-shadow:inset 0 0 0 3px #c0d0da,inset 0 0 0 6px #26395e}
+.spotify-surface.spotify-reference-handheld .qt-titlebar{margin:0 25px;border-radius:12px;background:linear-gradient(#d9e2e8,#8c9cae)}
+.spotify-reference-handheld .qt-title-studs{display:none}
+.spotify-reference-handheld .qt-tools{gap:1px;border:0;background:transparent}
+.spotify-surface.spotify-reference-handheld .qt-movie{margin:0 14px;border:4px solid #1b294a;box-shadow:0 0 0 2px #687cab}
+.spotify-reference-handheld .qt-scrub{margin:0 16px;border:0;background:#77a63f}
+.spotify-reference-handheld .qt-bottom{grid-template-columns:minmax(24px,1fr) 104px minmax(24px,1fr);padding:0 14px 8px;border:0;border-radius:0 0 42% 42%;background:radial-gradient(ellipse at 50% 0%,#9cc660,#689e34 52%,#35601f 70%,#adb4af 72%,#626f77 77%,#253765 80%)}
+.spotify-reference-handheld .qt-transport{height:82px;display:grid;grid-template-columns:28px 34px 28px;grid-template-rows:34px 28px;gap:2px;align-content:center;justify-content:center;border:3px solid #6f796b;border-radius:50%;background:radial-gradient(#e4e7dc,#a0aaa0 65%,#e7e9de 68%,#858d84);box-shadow:0 0 0 3px #b5c6a0,0 0 0 5px #487323}
+.spotify-reference-handheld .qt-transport>button:nth-child(1){grid-area:1/1}
+.spotify-reference-handheld .qt-transport>button:nth-child(2){grid-area:2/1;justify-self:end}
+.spotify-reference-handheld .qt-transport>button:nth-child(3){grid-area:1/2}
+.spotify-reference-handheld .qt-transport>button:nth-child(4){grid-area:2/3}
+.spotify-reference-handheld .qt-transport>button:nth-child(5){grid-area:1/3}
+.spotify-surface.spotify-reference-handheld[data-screen=off]{grid-template-rows:20px 18px 16px 100px}
+.spotify-surface.spotify-reference-handheld[data-screen=mini]{grid-template-rows:20px 18px 100px}
+.spotify-reference-handheld .qt-compact-copy{color:#e9f2ff;margin:0 10px}
+/* Blue droplet reference 9c878…: asymmetric shell and inset LCD, a lower
+   left transport strip and independent green-ring utility at lower right. */
+.spotify-surface.spotify-surface.spotify-reference-droplet{padding:26px 20px 24px;border:2px solid #83c7ed;border-radius:55% 45% 46% 40%/33% 58% 42% 60%;background:radial-gradient(ellipse at 40% 25%,#a5e5ff,#378dcc 50%,#13559d 75%,#c0edff 78%,#568fae 81%,#e0f9ff 85%);box-shadow:inset 0 0 0 3px #e3faff,inset 0 0 0 8px #7bc1e8}
+.spotify-reference-droplet .qt-title-studs{display:none}
+.spotify-surface.spotify-reference-droplet .qt-titlebar{margin:0 18px;background:transparent;color:#eefaff}
+.spotify-reference-droplet .qt-tools{gap:1px;border:0;background:transparent}
+.spotify-surface.spotify-reference-droplet .qt-movie{border:2px solid #5aaddd;border-radius:22px 10px 16px 12px;background:#124579;box-shadow:0 0 0 2px #135690}
+.spotify-reference-droplet .qt-scrub{margin:0 6px;background:#c1e5f4;border:0;border-radius:8px}
+.spotify-reference-droplet .qt-bottom{grid-template-columns:auto minmax(16px,1fr) 28px;gap:2px;border:0;padding:0;background:transparent;box-shadow:none}
+.spotify-reference-droplet .qt-transport{order:-1;gap:0}
+.spotify-reference-droplet .qt-main-play{order:-1}
+.spotify-reference-droplet .qt-bottom>button{box-shadow:0 0 0 3px #c2f6fd,0 0 0 5px #90d84b,inset 0 1px #fff}
+.spotify-surface.spotify-reference-droplet[data-screen=off],.spotify-surface.spotify-reference-droplet[data-screen=mini]{padding:8px 10px;border-radius:30px}
+.spotify-reference-droplet .qt-compact-copy{color:#e7f7ff}
+/* QuickTime reference: straight movie aperture, brushed lower bezel,
+   centered five-disc transport and a separate narrow scrub strip. */
+.spotify-surface.spotify-quicktime{position:relative;display:grid;grid-template-rows:20px 28px minmax(0,1fr) 16px 36px;gap:0;padding:0;border:1px solid #737679;border-radius:5px;aspect-ratio:auto;transform:none;color:#303235;--lyric:#dcebf0;background:repeating-linear-gradient(0deg,#ffffff18 0 1px,#55555508 1px 2px),linear-gradient(110deg,#aaaeb0,#e0e1e2 43%,#b0b3b5);box-shadow:inset 0 1px #f2f2f2,inset 0 -2px #85888b;font-family:Tahoma,sans-serif}
+.spotify-quicktime[data-screen=off]{grid-template-rows:20px 18px 16px 36px}
+.spotify-quicktime[data-screen=mini]{grid-template-rows:20px 18px 36px}
+.spotify-quicktime .qt-titlebar{display:flex;align-items:center;gap:5px;padding:0 4px;border:0;min-width:0;background:linear-gradient(#d5d6d7,#b4b7b9);box-shadow:inset 0 1px #eee}
+.qt-title-studs{flex-shrink:0;color:#7e807f;font:10px/1 Tahoma,sans-serif;text-shadow:0 1px #eee}
+.qt-titlebar strong{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;font:10px/16px Tahoma,sans-serif}
+.spotify-quicktime button{width:24px;min-width:24px;height:24px;min-height:24px;border:1px solid #8b8e90;color:#404449;background:radial-gradient(ellipse at 40% 20%,#f1f2f2,#d1d3d5 55%,#a8adb0);box-shadow:inset 0 1px #fff,0 1px 1px #74797b;border-radius:50%}
+.spotify-quicktime button svg{width:12px;height:12px}
+.spotify-quicktime button[aria-pressed=true],.spotify-quicktime button[aria-selected=true]{color:#17252c;background:linear-gradient(#a4adb3,#dce1e4);box-shadow:inset 0 1px 2px #59626a}
+.spotify-quicktime .qt-titlebar button{width:18px;min-width:18px;height:18px;min-height:18px;box-shadow:inset 0 1px #eee}
+.qt-tools{display:flex;justify-content:center;align-items:center;gap:4px;min-width:0;border-top:1px solid #eef0f1;border-bottom:1px solid #81868a}
+.qt-tools [role=tablist]{display:flex;gap:2px;border-left:1px solid #92979a;padding-left:4px}
+.spotify-quicktime .qt-tools button{border-radius:3px;box-shadow:inset 0 1px #eee}
+.spotify-quicktime .qt-movie{margin:0 3px;border:1px solid #55595c;border-radius:0;background:#000;box-shadow:inset 0 0 0 1px #000}
+.spotify-quicktime .qt-movie::after{display:none}
+.spotify-quicktime .spotify-artwork{object-fit:contain}
+.qt-scrub{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;gap:4px;padding:0 5px;color:#545b60;font:10px Tahoma,sans-serif;background:linear-gradient(#dedfe0,#c2c6c8);border-top:1px solid #f2f3f3}
+.qt-bottom{display:grid;grid-template-columns:minmax(32px,1fr) auto minmax(24px,1fr);gap:4px;align-items:center;padding:0 5px 3px;border-top:1px solid #a8adaf;border-radius:0 0 35% 35%/0 0 7px 7px;box-shadow:inset 0 1px #f0f1f1}
+.qt-bottom>button{justify-self:end}
+.qt-volume{width:100%;max-width:60px;min-width:0}
+.qt-transport{display:flex;align-items:center;gap:2px}
+.spotify-surface.spotify-quicktime button.qt-main-play{width:30px;min-width:30px;height:30px;min-height:30px;color:#343a40;border:1px solid #858b8f;background:radial-gradient(ellipse at 38% 15%,#f4f5f5,#c2c7ca 65%,#969da2);box-shadow:inset 0 1px #fff,0 1px 2px #73797d}
+.spotify-quicktime .spotify-range{min-width:0;width:100%;height:12px;margin:0;accent-color:#7b858c}
+.qt-compact-copy{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 5px;font:10px/16px Tahoma,sans-serif}
+.spotify-quicktime .spotify-panel button:not(.spotify-panel-close){width:100%;height:auto;min-height:25px;border-radius:4px;background:#123951;color:var(--lyric);box-shadow:none}
+.spotify-quicktime .spotify-panel .spotify-panel-close{width:20px;min-width:20px;height:20px;min-height:20px;border-radius:3px;color:var(--lyric);background:#123951;box-shadow:none}
+.spotify-quicktime .spotify-audio-prompt button,.spotify-quicktime .spotify-audio-status button{width:auto;min-width:0;border-radius:3px;color:#d9f3ff;background:#123451;box-shadow:none}
+/* Window/deck structure: all children use the same controller and display. */
+.qt-titlebar,.qt-tools,.qt-scrub,.qt-bottom,.qt-compact-copy{grid-column:1/-1}
+.qt-movie{grid-row:3}
+.reference-tab-label{display:flex;align-items:center;gap:4px}
+.qt-tools .reference-tab-label>span{display:none}
+.reference-navigation{grid-row:3;grid-column:1;min-height:0;overflow:auto;background:linear-gradient(#4a5e95,#91a5d0);padding:3px 1px}
+.reference-navigation [role=tablist]{display:flex;flex-direction:column;gap:3px}
+.spotify-surface .reference-navigation button{width:100%;height:28px;min-width:24px;border-radius:0;box-shadow:none;background:transparent;color:#f4f8ff;text-align:left}
+.spotify-surface .reference-navigation button[aria-selected=true]{background:#233e81;color:#fff;box-shadow:inset 0 1px #a5b9ed,inset 0 -1px #1a2e5b}
+.spotify-surface[data-wide=false] .reference-navigation .reference-tab-label>span{display:none}
+.reference-playlist-side{grid-row:3;min-height:0;overflow:hidden;position:relative;background:#0b1727;border-left:2px solid #899cb1;color:#dcebf0}
+.reference-playlist-side .spotify-panel{height:100%;box-sizing:border-box}
+.reference-side-message{padding:10px;font:11px/1.4 Tahoma,sans-serif}
+.reference-deck-info{grid-row:3;grid-column:2;min-height:0;display:flex;flex-direction:column;justify-content:space-evenly;gap:2px;margin:2px 4px 2px 0;padding:5px;border:2px ridge #9296b1;border-radius:6px;background:#07162c;color:#54c5ff;font:10px/1.2 Tahoma,sans-serif;overflow:auto}
+.reference-deck-info strong{color:#76d0ff;font:14px/1.2 monospace}
+/* Classic desktop application: blue titlebar, left navigation, media center,
+   independent real playlist-target column at desktop widths. */
+.spotify-surface.spotify-reference-wmp-classic{border:3px solid #245bd3;border-radius:4px;background:#c3cee8;box-shadow:inset 0 0 0 1px #fff}
+.spotify-reference-wmp-classic .qt-titlebar{background:linear-gradient(#4b96fc,#1455cc 50%,#2467d5);color:white}
+.spotify-reference-wmp-classic .qt-title-studs,.spotify-reference-wmp-glass .qt-title-studs,.spotify-reference-wmp-library .qt-title-studs,.spotify-reference-dark-playlist .qt-title-studs{display:none}
+.spotify-reference-wmp-classic .qt-tools{justify-content:flex-start;padding-left:5px;background:linear-gradient(#d5deed,#a3b3d3)}
+.spotify-reference-wmp-classic .qt-movie{margin:0;border:2px inset #aec0df}
+.spotify-reference-wmp-classic .qt-bottom{grid-template-columns:auto minmax(24px,1fr) 24px;background:linear-gradient(#bbc9ec,#738bbf);border-radius:0}
+.spotify-reference-wmp-classic .qt-transport,.spotify-reference-wmp-classic .qt-main-play{order:-1}
+.spotify-reference-wmp-classic .qt-volume{justify-self:end}
+/* Pale/glassy tabs: broad top navigation, full rectangular display, continuous
+   bottom rail. No fake Rip/Burn/Sync operations are exposed. */
+.spotify-surface.spotify-reference-wmp-glass{border:2px solid #87a5bd;border-radius:7px;background:linear-gradient(#d8e9f6,#9cb6d5);box-shadow:inset 0 1px #fff}
+.spotify-reference-wmp-glass .qt-titlebar{background:linear-gradient(#e5f2fc,#b9d1e8);color:#2d506d}
+.spotify-reference-wmp-glass .qt-tools{justify-content:flex-start;padding-left:5px;gap:5px;background:linear-gradient(#f5faff,#99b9dd);border-bottom:1px solid #658daf}
+.spotify-reference-wmp-glass .qt-tools button{border-radius:4px 4px 0 0;background:linear-gradient(#e7f4ff,#a7cae8)}
+.spotify-reference-wmp-glass[data-wide=true] .qt-tools [role=tab] {width:76px}
+.spotify-reference-wmp-glass[data-wide=true] .qt-tools .reference-tab-label>span{display:inline}
+.spotify-reference-wmp-glass .qt-movie{margin:0;border:1px solid #6b90b2}
+.spotify-reference-wmp-glass .qt-bottom{grid-template-columns:auto minmax(24px,1fr) 24px;border-radius:0;background:linear-gradient(#e9f7ff,#b4cfeb)}
+.spotify-reference-wmp-glass .qt-transport,.spotify-reference-wmp-glass .qt-main-play{order:-1}
+.spotify-reference-wmp-glass .qt-volume{justify-self:end}
+/* jetAudio: separate black display and blue numeric counter compartments,
+   raised utility strip, long scrub and a lower circular transport bank. */
+.spotify-surface.spotify-reference-jetaudio{padding:4px;border:2px outset #bfc0d1;border-radius:3px;background:linear-gradient(100deg,#a9aabf,#d1d2df 45%,#9798ae);box-shadow:inset 0 0 0 2px #c5c7d7}
+.spotify-reference-jetaudio .qt-titlebar{background:#b8bacf;color:#36394e}
+.spotify-reference-jetaudio .qt-title-studs{display:none}
+.spotify-reference-jetaudio .qt-tools{margin:1px 3px;border:2px groove #dadce7;border-radius:5px;background:#575a6d;gap:2px}
+.spotify-reference-jetaudio .qt-tools button{height:22px;min-height:22px;border-radius:2px;background:linear-gradient(#82899b,#484e63);color:#eef4ff;box-shadow:none}
+.spotify-reference-jetaudio .qt-movie{margin:2px 3px;border:3px ridge #9296b1;border-radius:6px;background:#030d1e}
+.spotify-reference-jetaudio .qt-scrub{border:1px inset #dedee8;border-radius:6px;background:#777e95;margin:2px 4px}
+.spotify-reference-jetaudio .qt-bottom{border:0;border-radius:0;box-shadow:none;background:transparent}
+/* Organic source: three separately framed sections, speaker wells and a
+   tapered central green housing. Original illustrated face art is NOT copied;
+   analysis/view controls do not pretend to be a Spotify playback equalizer. */
+.spotify-surface.spotify-reference-organic{border:2px solid #56642c;border-radius:28px 28px 18px 18px;background:linear-gradient(90deg,#4d7029,#99d13e 22%,#79bb26 78%,#4d7029);box-shadow:inset 0 0 0 3px #a4b585}
+.spotify-reference-organic .qt-titlebar{margin:0 25%;background:#a4d448;border-radius:16px 16px 0 0;color:#243f13}
+.spotify-reference-organic .qt-title-studs{display:none}
+.spotify-reference-organic .qt-tools{background:transparent;border:0}
+.spotify-reference-organic .qt-movie{border:4px ridge #72a523;border-radius:28px 28px 18px 18px;margin:0 5px}
+.spotify-reference-organic .reference-navigation{padding-top:30px;background:radial-gradient(circle at 50% 14px,#152613 5px,#bac7ad 6px,#42512d 10px,#8cab5b 12px,transparent 13px),linear-gradient(#5d822b,#354f1e);border:3px ridge #9ab46c;border-radius:20px 3px 3px 20px}
+.spotify-reference-organic .reference-navigation button[aria-selected=true]{background:#79a640}
+.spotify-reference-organic .reference-playlist-side{border:3px ridge #9ab46c;border-radius:3px 20px 20px 3px;background:#31521c}
+.spotify-reference-organic .qt-scrub{margin:0 12%;background:#89b837;border:0}
+.spotify-reference-organic .qt-bottom{background:linear-gradient(#93c532,#497622);border-radius:0 0 45% 45%;border:0;box-shadow:inset 0 -4px #284d1d}
+/* Dark visualization window: black media body, independently framed playlist
+   targets at desktop width and a compact floating bottom transport. */
+.spotify-surface.spotify-reference-dark-playlist{border:2px solid #627789;border-radius:6px;background:#020508;box-shadow:inset 0 0 0 1px #b5c4cd}
+.spotify-reference-dark-playlist .qt-titlebar{background:linear-gradient(#a4b4bd,#627888);color:#172631}
+.spotify-reference-dark-playlist .qt-tools{background:#0b1015;border:0}
+.spotify-reference-dark-playlist .qt-tools button{background:#1c2b38;color:#b9cbd9;box-shadow:none;border-color:#435868;border-radius:2px}
+.spotify-reference-dark-playlist .qt-movie{margin:0;border:0;background:#000}
+.spotify-reference-dark-playlist .qt-scrub{background:#0b1119;color:#a5c5de;border:0}
+.spotify-reference-dark-playlist .qt-bottom{margin:1px auto 4px;width:calc(100% - 12px);max-width:310px;border:1px solid #5b7089;border-radius:18px;background:linear-gradient(#344d65,#182838);box-shadow:none}
+/* Library/navigation geometry: light navigation and a real current-track tile;
+   real search results use a grid. This is not a fabricated saved-album library. */
+.spotify-surface.spotify-reference-wmp-library{border:1px solid #6089aa;border-radius:2px;background:#e4eff9;box-shadow:none}
+.spotify-reference-wmp-library .qt-titlebar{background:#0873c6;color:#fff}
+.spotify-reference-wmp-library .qt-tools{justify-content:flex-start;padding-left:5px;background:#edf5fc;border-bottom:1px solid #a9c1d8}
+.spotify-reference-wmp-library .qt-tools button{border:0;border-radius:2px;background:#dfebf6;box-shadow:none;color:#345877}
+.spotify-reference-wmp-library .reference-navigation{background:#dbe9f6;border-right:1px solid #a7bfd6}
+.spotify-reference-wmp-library .reference-navigation button{color:#35536e}
+.spotify-reference-wmp-library .reference-navigation button[aria-selected=true]{background:#b7d6f0;color:#213c53;box-shadow:inset 0 0 0 1px #86b6d9}
+.spotify-reference-wmp-library .qt-movie{margin:0;border:0;background:#0b263b}
+.spotify-reference-wmp-library .qt-bottom{border-radius:0;background:#e4eff9;border-top:1px solid #a8bfd3}
+.reference-current-grid{box-sizing:border-box;width:100%;overflow:auto;display:grid;align-content:start;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;padding:10px;background:#eaf3fb;color:#35506a;font:11px/1.4 Tahoma,sans-serif}
+.reference-current-grid article{display:flex;flex-direction:column;gap:2px;min-width:0;max-width:180px}
+.reference-current-grid article>strong,.reference-current-grid article>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reference-current-grid p{grid-column:1/-1;margin:0;font-size:10px}
+.reference-current-art{display:flex;height:90px;border:1px solid #a7bed3;background:#d0dfec;border-radius:2px;overflow:hidden}
+.spotify-reference-wmp-library .spotify-search-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;background:#eaf3fb}
+.spotify-surface.spotify-reference-wmp-library .spotify-search-results button{display:flex;flex-direction:column;min-height:100px;background:#eaf3fb;color:#35506a;border:1px solid #a7bed3}
+.spotify-reference-wmp-library .spotify-search-results img{width:64px;height:64px;object-fit:contain}
+.spotify-quicktime .spotify-settings legend{font-size:10px;line-height:11px}
+.spotify-quicktime .spotify-panel .spotify-playlist-track{font-size:10px;line-height:12px}
+/* Keep physical type readable inside the scaled silver shell. Compact text
+   rows retain their accessible group names without wasting LCD height on
+   repeated visible legends. Never mistake containment for legibility. */
+.spotify-surface[data-style=silver] .spotify-settings{padding:calc(2px / var(--player-scale)) calc(4px / var(--player-scale));gap:calc(1px / var(--player-scale));font-size:calc(10px / var(--player-scale))}
+.spotify-surface[data-style=silver] .spotify-settings :is(header,legend,label,span,a,select){font-size:calc(10px / var(--player-scale));line-height:calc(12px / var(--player-scale))}
+.spotify-surface[data-style=silver] .spotify-settings legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.spotify-surface[data-style=silver] .spotify-settings fieldset{flex-shrink:0}
+.spotify-surface[data-style=silver] .spotify-settings .spotify-skins{gap:calc(3px / var(--player-scale))}
+.spotify-surface[data-style=silver] .spotify-settings .spotify-skins label{height:calc(12px / var(--player-scale))}
+.spotify-surface[data-style=silver] .spotify-settings .spotify-style-heading,.spotify-surface[data-style=silver] .spotify-style-heading select{height:calc(16px / var(--player-scale));min-height:calc(16px / var(--player-scale))}
+.spotify-surface[data-style=silver] .spotify-settings-account{min-height:calc(12px / var(--player-scale))}
+.spotify-surface[data-style=silver] .spotify-title{font-size:max(12px,calc(10px / var(--player-scale)));line-height:max(16px,calc(11px / var(--player-scale)))}
+.spotify-surface[data-style=silver] :is(.spotify-meta,.spotify-time){font-size:calc(10px / var(--player-scale));line-height:max(13px,calc(11px / var(--player-scale)))}
+.spotify-surface[data-style=silver] .spotify-mini-lcd{height:max(34px,calc(27px / var(--player-scale)))}
+.spotify-surface[data-style=silver] .spotify-mini-lcd .spotify-title{font-size:calc(10px / var(--player-scale));line-height:max(14px,calc(11px / var(--player-scale)))}
+.spotify-surface[data-style=silver] .spotify-mini-lcd :is(.spotify-meta,.spotify-time){line-height:calc(11px / var(--player-scale))}
+.spotify-surface[data-style=silver][data-screen=mini] .spotify-transport{top:max(38px,calc(32px / var(--player-scale)))}
+.spotify-surface[data-style=silver] .spotify-panel :is(input,button,p,span,h2){font-size:max(10px,calc(10px / var(--player-scale)))}
 `
 
 function FactoryLoader({ label = 'Loading Spotify' }) {
@@ -1009,16 +1233,26 @@ function signalAllowed(enabled, visible, playing, reducedMotion) {
   return enabled && visible && playing && !reducedMotion
 }
 
+function motionReduced() {
+  return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true || hostPreferences?.get?.()?.reducedMotion === true
+}
+
+function useReducedMotion() {
+  const [reduced,setReduced]=useState(motionReduced)
+  useEffect(()=>{
+    const media=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)'),change=()=>setReduced(motionReduced())
+    media?.addEventListener('change',change)
+    const unsubscribe=hostPreferences?.subscribe?.(change)
+    change()
+    return ()=>{media?.removeEventListener('change',change);if(typeof unsubscribe==='function')unsubscribe()}
+  },[])
+  return reduced
+}
+
 function MetalArtifact({ enabled, visible, playing }) {
   const ref = useRef(null)
-  const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const reduced = useReducedMotion()
   const [available, setAvailable] = useState(true)
-  useEffect(() => {
-    const media = matchMedia('(prefers-reduced-motion: reduce)')
-    const change = () => setReduced(media.matches)
-    media.addEventListener('change', change)
-    return () => media.removeEventListener('change', change)
-  }, [])
   const active = signalAllowed(enabled, visible, playing, reduced) && available
   useEffect(() => {
     if (!active) return undefined
@@ -1117,81 +1351,109 @@ function TastePalette({track}) {
   ]})
 }
 
-function XPVisualizer({playing, visible, style = 'ribbons'}) {
-  const ref = useRef(null)
-  const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
-  useEffect(() => {
-    const media = matchMedia('(prefers-reduced-motion: reduce)')
-    const change = () => setReduced(media.matches)
-    media.addEventListener('change', change)
-    return () => media.removeEventListener('change', change)
-  }, [])
-  useEffect(() => {
-    const canvas = ref.current, context = canvas?.getContext('2d')
-    if (!context) return undefined
-    const draw = () => {
-      const w=canvas.width,h=canvas.height,t=performance.now()/2200
-      context.fillStyle='#020916';context.fillRect(0,0,w,h)
-      if (style==='waves') {
-        // Layered ambient waves — horizontal ripples, not FFT data.
-        for(let band=0;band<4;band++) {
-          context.beginPath()
-          for(let x=0;x<=w;x+=4) {
-            const y=h/2+Math.sin(x/40+band*.9+t*1.5)*h*.28*Math.cos(t*.2+band*.3)
-            if(x)context.lineTo(x,y);else context.moveTo(x,y)
-          }
-          context.strokeStyle=['#63c7ff','#809aff','#c0f6ff','#4dd0a0'][band]
-          context.lineWidth=1.4;context.shadowBlur=6;context.shadowColor=context.strokeStyle;context.stroke()
-        }
-      } else if (style==='pulse') {
-        // Concentric pulsing rings.
-        for(let band=0;band<5;band++) {
-          const r=Math.min(w,h)*.2+(Math.sin(t*2+band*.6)*.12+0.12)*Math.min(w,h)*(.4+band*.13)
-          context.beginPath();context.arc(w/2,h/2,Math.max(2,r),0,Math.PI*2)
-          context.strokeStyle=['#63c7ff','#809aff','#c0f6ff','#4dd0a0','#ffd76a'][band]
-          context.lineWidth=1.5;context.shadowBlur=8;context.shadowColor=context.strokeStyle;context.stroke()
-        }
-      } else if (style==='grid') {
-        // XP-era perspective grid receding to a glowing horizon.
-        const horizon=h*.62
-        for(let i=0;i<10;i++) {
-          const y=horizon+Math.pow(i/10,2)*(h-horizon)
-          context.beginPath();context.moveTo(0,y);context.lineTo(w,y)
-          context.strokeStyle='#63c7ff';context.globalAlpha=.25+i*.06;context.lineWidth=1;context.stroke()
-        }
-        for(let i=-8;i<=8;i++) {
-          context.beginPath();context.moveTo(w/2+i*w*.06,horizon);context.lineTo(w/2+i*w*.18,h)
-          context.strokeStyle='#809aff';context.globalAlpha=.35;context.lineWidth=1;context.stroke()
-        }
-        context.globalAlpha=1;context.fillStyle='#63c7ff22';context.fillRect(0,horizon-2,w,3)
-      } else {
-        // XP-era geometric ribbons, explicitly ambient — not fake FFT data.
-        for(let band=0;band<3;band++) {
-          context.beginPath()
-          for(let i=0;i<=160;i++) {
-            const a=i/160*Math.PI*2
-            const x=w/2+Math.sin(a*3+t+band*.24)*w*.43*Math.cos(t*.17)
-            const y=h/2+Math.sin(a*2+t*.7+band*.24)*h*.36
-            if(i)context.lineTo(x,y);else context.moveTo(x,y)
-          }
-          context.strokeStyle=['#63c7ff','#809aff','#c0f6ff'][band]
-          context.lineWidth=1;context.shadowBlur=4;context.shadowColor=context.strokeStyle;context.stroke()
+// Frame-driven renderers: no clock, random generator, fabricated FFT or beat.
+// References and implementation boundaries are documented in docs/AUDIO-VISUALIZERS.md.
+function drawAudioFrame(ctx, w, h, style, frame) {
+  const active = frame?.state === 'streaming'
+  const bands = active ? frame.bands : Array(32).fill(0)
+  const wave = active ? frame.wave : Array(64).fill(0)
+  ctx.clearRect(0,0,w,h);ctx.fillStyle='#020916';ctx.fillRect(0,0,w,h)
+  ctx.lineWidth=1;ctx.shadowBlur=0;ctx.globalAlpha=1
+  if(style === 'alchemy') {
+    ctx.fillStyle='#001600';ctx.fillRect(0,0,w,h)
+    if(!active)return
+    const radius=Math.min(w,h)*Math.min(.48,.08+frame.rms*2)
+    const glow=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,radius*2)
+    glow.addColorStop(0,'#caff99');glow.addColorStop(.2,'#71d42b99');glow.addColorStop(1,'#18490000')
+    ctx.fillStyle=glow;ctx.fillRect(0,0,w,h)
+    for(let ray=0;ray<24;ray++) {
+      const energy=bands[ray], angle=ray/24*Math.PI*2
+      ctx.beginPath()
+      for(let step=0;step<=24;step++) {
+        const distance=step/24*Math.max(w,h)*(.15+energy*.48)
+        const bend=wave[(step*2+ray)%64]*.7
+        const x=w/2+Math.cos(angle+bend)*distance,y=h/2+Math.sin(angle+bend)*distance
+        if(step)ctx.lineTo(x,y);else ctx.moveTo(x,y)
+      }
+      ctx.strokeStyle=`rgba(181,255,116,${energy*.7})`;ctx.shadowColor='#92ff4c';ctx.shadowBlur=4;ctx.stroke()
+    }
+  } else {
+    ctx.strokeStyle='#1e435644';ctx.beginPath()
+    for(let row=1;row<5;row++){ctx.moveTo(0,h*row/5);ctx.lineTo(w,h*row/5)}ctx.stroke()
+    if(style === 'scope') {
+      ctx.beginPath()
+      for(let i=0;i<64;i++){const x=i/63*w,y=h/2-wave[i]*h*.46;if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y)}
+      ctx.strokeStyle=active?'#91eaff':'#325269';ctx.shadowColor='#45c4ff';ctx.shadowBlur=active?5:0;ctx.lineWidth=1.3;ctx.stroke()
+    } else {
+      const gap=Math.max(1,w/160),bar=w/32
+      for(let i=0;i<32;i++) {
+        const segments=Math.round(bands[i]*18)
+        for(let j=0;j<18;j++) {
+          ctx.fillStyle=j<segments?(j>14?'#b8f8ff':j>9?'#59cefa':'#398bd2'):'#10283b'
+          ctx.fillRect(i*bar+gap/2,h-8-(j+1)*(h-16)/18,bar-gap,Math.max(1,(h-16)/18-1))
         }
       }
-      context.shadowBlur=0;context.globalAlpha=1
     }
-    const resize = () => {
-      const box=canvas.getBoundingClientRect()
-      canvas.width=Math.max(1,Math.min(320,Math.round(box.width)))
-      canvas.height=Math.max(1,Math.min(200,Math.round(box.height)))
-      draw()
+  }
+  ctx.shadowBlur=0;ctx.globalAlpha=1
+}
+
+function XPVisualizer({playing, visible, style = 'spectrum'}) {
+  const ref=useRef(null), frameRef=useRef(null), drawRef=useRef(()=>{})
+  const [enabled,setEnabled]=useState(false), [retry,setRetry]=useState(0)
+  const [frame,setFrame]=useState({state:'off'})
+  const reduced=useReducedMotion()
+  frameRef.current=frame
+  useEffect(()=>{
+    let cancelled=false, lease='',timer
+    const stop=()=>{if(lease&&pluginRest)void pluginRest('/visualizer/stop',{method:'POST',body:{lease}}).catch(()=>{})}
+    if(!signalAllowed(enabled,visible,playing,reduced)){setFrame({state:'off'});return undefined}
+    setFrame({state:'starting'})
+    const poll=async()=>{
+      try {
+        const next=await pluginRest('/visualizer/frame?lease='+encodeURIComponent(lease),{method:'GET',timeoutMs:4000})
+        if(cancelled)return
+        setFrame(previous=>next.sequence&&next.sequence===previous.sequence&&next.state===previous.state?previous:next)
+        if(['error','permission-required','unavailable','off'].includes(next.state)){stop();return}
+        // At most one in-flight request, 12Hz maximum. No RAF or hidden timers.
+        timer=setTimeout(poll,1000/12)
+      } catch {if(!cancelled){setFrame({state:'error',message:'Audio analysis disconnected. Retry to reconnect.'});stop()}}
     }
-    const observer = new ResizeObserver(resize);observer.observe(canvas);resize()
-    const timer=signalAllowed(true,visible,playing,reduced) ? setInterval(draw,1000/12) : null
-    return () => {if(timer!==null)clearInterval(timer);observer.disconnect()}
-  }, [playing,visible,reduced,style])
-  return jsxs('div',{className:'spotify-visualizer','aria-label':'XP ambient visualizer',children:[
-    jsx('canvas',{ref,'aria-hidden':true}),jsx('small',{children:'XP · '+style.toUpperCase()})
+    void (async()=>{
+      try {
+        if(!pluginRest)throw new Error('Spotify audio backend is unavailable.')
+        const response=await pluginRest('/visualizer/start',{method:'POST',body:{consent:true},timeoutMs:5000})
+        lease=response.lease||''
+        if(cancelled){stop();return}
+        setFrame(response)
+        if(lease)void poll()
+      } catch(error){if(!cancelled)setFrame({state:'error',message:error.message||'Could not enable Spotify audio.'})}
+    })()
+    return ()=>{cancelled=true;clearTimeout(timer);stop()}
+  },[enabled,visible,playing,reduced,retry])
+  useEffect(()=>{
+    const canvas=ref.current,ctx=canvas?.getContext('2d');if(!ctx)return undefined
+    const draw=()=>drawAudioFrame(ctx,canvas.width,canvas.height,style,frameRef.current)
+    drawRef.current=draw
+    const resize=()=>{
+      const box=canvas.getBoundingClientRect(),dpr=Math.min(2,globalThis.devicePixelRatio||1)
+      canvas.width=Math.max(1,Math.min(640,Math.round(box.width*dpr)))
+      canvas.height=Math.max(1,Math.min(400,Math.round(box.height*dpr)));draw()
+    }
+    const observer=new ResizeObserver(resize);observer.observe(canvas);resize()
+    return ()=>{observer.disconnect();drawRef.current=()=>{}}
+  },[style])
+  useEffect(()=>{drawRef.current()},[frame])
+  const live=['streaming','silent'].includes(frame.state)
+  const message=reduced?'Reduced motion is enabled.':!playing?'Play Spotify to enable sound analysis.':frame.message||'Analyze Spotify app audio. No microphone or recordings.'
+  return jsxs('div',{className:'spotify-visualizer','aria-label':'Spotify audio visualizer','data-audio-state':frame.state,children:[
+    jsx('canvas',{ref,'aria-hidden':true}),
+    live?jsxs('div',{className:'spotify-audio-status',children:[jsx('span',{children:frame.state==='silent'?'NO AUDIO':'SPOTIFY AUDIO'}),jsx('button',{type:'button','aria-label':'Stop audio analysis',title:'Stop audio analysis',onClick:()=>setEnabled(false),children:'Stop'})]}):
+    jsxs('div',{className:'spotify-audio-prompt',children:[
+      jsx('strong',{children:frame.state==='starting'?'Starting audio…':'Sound visualizer'}),
+      jsx('p',{role:'status',children:message}),
+      jsx('button',{type:'button',disabled:!playing||reduced||frame.state==='starting','aria-label':'Enable Spotify audio analysis',title:'Enable Spotify audio analysis',onClick:()=>{setEnabled(true);setRetry(x=>x+1)},children:frame.state==='off'?'Enable audio':'Retry audio'})
+    ]})
   ]})
 }
 
@@ -1312,7 +1574,7 @@ function SyncedLyrics({ durationSeconds, isPlaying, plainLyrics, positionSeconds
     const scroller = scrollerRef.current
     const activeLine = lineRefs.current[active.lineIndex]
     if (!scroller || !activeLine || !following) return
-    const reduceMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const reduceMotion = motionReduced()
     const top = Math.max(0, activeLine.offsetTop - (scroller.clientHeight - activeLine.offsetHeight) / 2)
     scroller.scrollTo({ top, behavior: reduceMotion ? 'auto' : 'smooth' })
   }, [active.lineIndex, following])
@@ -1391,15 +1653,20 @@ function retroPlayerScale(viewportWidth) {
 
 function playerPreferences(value = {}) {
   value = value && typeof value === 'object' ? value : {}
-  return {mode: ['on', 'off', 'mini'].includes(value.mode) ? value.mode : 'on',
+  return {style: PLAYER_STYLES.some(style=>style.id===value.style) ? value.style : 'silver',
+    mode: ['on', 'off', 'mini'].includes(value.mode) ? value.mode : 'on',
     skin: ['chrome', 'ice', 'graphite'].includes(value.skin) ? value.skin : 'chrome',
     view: ['artwork', 'visualizer', 'lyrics', 'curate'].includes(value.view) ? value.view : 'artwork',
-    visualizer: ['ribbons', 'waves', 'pulse', 'grid'].includes(value.visualizer) ? value.visualizer : 'ribbons'}
+    visualizer: ['spectrum', 'scope', 'alchemy'].includes(value.visualizer) ? value.visualizer : 'spectrum'}
 }
 
 // Consistent 24-unit vector marks: no font-dependent symbols on hardware controls.
 function playerIcon(name, filled = false) {
   const paths = {
+    previous: 'M5 5v14 M19 5L8 12l11 7Z',
+    next: 'M19 5v14 M5 5l11 7-11 7Z',
+    rewind: 'M11 5L2 12l9 7Z M22 5l-9 7 9 7Z',
+    forward: 'M2 5l9 7-9 7Z M13 5l9 7-9 7Z',
     search: 'M10.5 3.5a7 7 0 1 0 0 14a7 7 0 0 0 0-14 M16 16l5 5',
     heart: 'M20.8 4.6a5.4 5.4 0 0 0-7.6 0L12 5.8l-1.2-1.2a5.4 5.4 0 0 0-7.6 7.6L12 21l8.8-8.8a5.4 5.4 0 0 0 0-7.6Z',
     playlist: 'M3 5h14 M3 10h14 M3 15h7 M17 13v8 M13 17h8',
@@ -1425,6 +1692,8 @@ function NativePlayer() {
   const busy = localBusy || commandBusy
   const [error, setError] = useState('')
   const [scale, setScale] = useState(1)
+  const [availableWidth, setAvailableWidth] = useState(320)
+  const [sideListOpen, setSideListOpen] = useState(true)
   const viewportRef = useRef(null)
   const [preferences, setPreferences] = useState(() => playerPreferences(pluginStorage?.get('playerPreferences')))
   const [panel, setPanel] = useState('')
@@ -1448,6 +1717,21 @@ function NativePlayer() {
   const [lyricsRetry, setLyricsRetry] = useState(0)
   const containerRef = useRef(null)
   const visible = useSurfaceVisible(containerRef)
+  const reducedMotion = useReducedMotion()
+  useEffect(() => {
+    if (!settingsOpen) return undefined
+    const opener = document.activeElement, settings = containerRef.current?.querySelector('.spotify-settings')
+    settings?.querySelector('select')?.focus()
+    return () => {
+      if (document.activeElement === document.body || settings?.contains(document.activeElement)) {
+        const target = opener?.isConnected ? opener : containerRef.current?.querySelector('[aria-label="Player settings"]')
+        target?.focus()
+      }
+    }
+  }, [settingsOpen])
+  useEffect(() => {
+    if (settingsOpen) containerRef.current?.querySelector('[aria-label="Player style"]')?.focus()
+  }, [preferences.style])
   useEffect(() => { $panePolling.set(true); return () => $panePolling.set(false) }, [])
   const statusQuery = useNativeStatus(true)
   useEffect(() => {
@@ -1473,17 +1757,18 @@ function NativePlayer() {
     const update = () => {
       const widthScale = retroPlayerScale(viewport.clientWidth)
       setScale(widthScale)
+      setAvailableWidth(viewport.clientWidth)
       const group = viewport.closest('[data-tree-group]')
       const viewportBox = viewport.getBoundingClientRect()
       const zoom = viewport.clientHeight ? viewportBox.height / viewport.clientHeight : 1
       const chromeHeight = group ? Math.max(0, (group.getBoundingClientRect().height - viewportBox.height) / (zoom || 1)) : 0
-      updatePlayerPane(preferences.mode, widthScale, Math.round(chromeHeight))
+      updatePlayerPane(preferences.mode, widthScale, Math.round(chromeHeight), preferences.style, viewport.clientWidth)
     }
     update()
     const observer = new ResizeObserver(update)
     observer.observe(viewport)
     return () => observer.disconnect()
-  }, [preferences.mode])
+  }, [preferences.mode, preferences.style])
 
   useEffect(() => {
     let cancelled = false
@@ -1604,10 +1889,10 @@ function NativePlayer() {
   const screenButton = button(screenOn ? 'Turn screen off' : 'Turn screen on', playerIcon('screen'), () => { setSettingsOpen(false); updatePreferences({mode: screenOn ? 'off' : 'on'}) }, { 'aria-pressed': screenOn })
   const settingsButton = button('Player settings', playerIcon('settings'), () => showPanel('settings'), { 'aria-pressed': settingsOpen })
   const settingsContent = jsxs('div', { className: 'spotify-settings', 'aria-label': 'Player settings panel', onKeyDown: event => { if(event.key === 'Escape') {setSettingsOpen(false);event.stopPropagation()} }, children: [
-    jsx('header', {children:'Settings'}),
-    jsxs('fieldset',{children:[jsx('legend',{children:'Mode'}),jsx('div', {role:'radiogroup', 'aria-label':'Player mode', className:'spotify-skins', children:[['on','Full player','Full'],['mini','Compact mini','Mini'],['off','Transport only','Off']].map(([value,label,text])=>jsxs('label',{title:label,children:[jsx('input',{type:'radio','aria-label':label,name:'spotify-mode',value,checked:preferences.mode===value,onChange:()=>updatePreferences({mode:value})}),jsx('span',{children:text})]},value))})]}),
+    jsxs('header', {className:'spotify-style-heading',children:[jsx('span',{children:'Style'}),jsx('select',{'aria-label':'Player style',value:preferences.style,onChange:event=>updatePreferences({style:event.target.value}),children:PLAYER_STYLES.map(style=>jsx('option',{value:style.id,children:style.label},style.id))})]}),
+    jsxs('fieldset',{children:[jsx('legend',{className:'spotify-mode-legend',children:'Mode'}),jsx('div', {role:'radiogroup', 'aria-label':'Player mode', className:'spotify-skins', children:[['on','Full player','Full'],['mini','Compact mini','Mini'],['off','Transport only','Off']].map(([value,label,text])=>jsxs('label',{title:label,children:[jsx('input',{type:'radio','aria-label':label,name:'spotify-mode',value,checked:preferences.mode===value,onChange:()=>{updatePreferences({mode:value});if(value!=='on')closePanel()}}),jsx('span',{children:text})]},value))})]}),
     jsxs('fieldset',{children:[jsx('legend',{children:'Finish'}),jsx('div', {role:'radiogroup', 'aria-label':'Player skin', className:'spotify-skins', children:[['chrome','Classic chrome','Chrome'],['ice','Ice blue','Ice'],['graphite','Graphite','Graphite']].map(([value,label,text])=>jsxs('label',{title:label,children:[jsx('input',{type:'radio','aria-label':label,name:'spotify-skin',value,checked:preferences.skin===value,onChange:()=>updatePreferences({skin:value})}),jsx('span',{children:text})]},value))})]}),
-    jsxs('fieldset',{children:[jsx('legend',{children:'Visualizer'}),jsx('div', {role:'radiogroup', 'aria-label':'Visualizer style', className:'spotify-skins', children:[['ribbons','Geometric ribbons','Ribbons'],['waves','Ambient waves','Waves'],['pulse','Pulsing rings','Pulse'],['grid','Perspective grid','Grid']].map(([value,label,text])=>jsxs('label',{title:label,children:[jsx('input',{type:'radio','aria-label':label,name:'spotify-visualizer',value,checked:preferences.visualizer===value,onChange:()=>updatePreferences({visualizer:value})}),jsx('span',{children:text})]},value))})]}),
+    jsxs('fieldset',{children:[jsx('legend',{children:'Visualizer'}),jsx('div', {role:'radiogroup', 'aria-label':'Visualizer style', className:'spotify-skins', children:[['spectrum','Spectrum analyzer','Bands'],['scope','Oscilloscope waveform','Scope'],['alchemy','WMP-inspired Alchemy','Alchemy']].map(([value,label,text])=>jsxs('label',{title:label,children:[jsx('input',{type:'radio','aria-label':label,name:'spotify-visualizer',value,checked:preferences.visualizer===value,onChange:()=>updatePreferences({visualizer:value})}),jsx('span',{children:text})]},value))})]}),
     jsxs('a',{className:'spotify-settings-account',href:'#spotify-account','aria-label':'Spotify connection',title:'Spotify connection',onClick:event=>{event.preventDefault();setPanel('auth')},children:[jsx('span',{children:'Account'}),jsx('span',{children:authQuery.data?.loggedIn ? 'Connected ›' : accountDisconnected ? 'Connect ›' : 'Check status ›'})]})
   ] })
   const trackCopy = jsxs('div', {
@@ -1652,14 +1937,54 @@ function NativePlayer() {
       : lyricsState === 'ready' && syncedLyrics
         ? jsx(SyncedLyrics, { key:player.spotifyUrl, durationSeconds, isPlaying: isPlaying && visible, plainLyrics: lyrics, positionSeconds: player.positionSeconds, syncedLyrics })
         : jsx('div', { className: 'spotify-lyrics-message', children: lyricsMessage })
+  const displayContent = error ? jsxs('div',{role:'alert',className:'spotify-lyrics-message',children:[jsx('p',{children:error}),button('Retry Spotify status','Retry',()=>void act('status'),{disabled:busy})]}) : settingsOpen ? settingsContent : panel === 'search' ? jsx(SpotifySearchDialog, {embedded:true,onClose:closePanel}) : panel === 'playlists' ? jsx(SpotifyPlaylistDialog,{embedded:true,open:true,onOpenChange:closePanel,track:player}) : panel === 'auth' ? jsx(SpotifyAuthDialog,{embedded:true,onClose:closePanel}) : screenContent
+  // Reference: 13c185f4418ff0f1dde10194542be057-2316257832.png.
+  // Original CSS/vector implementation; no screenshot, Apple logo or movie
+  // payload is bundled. Titlebar studs are decoration, not fake OS controls.
+  const referenceWidth = playerFrameWidth(preferences.style,scale,availableWidth)
+  const referenceNavigation = screenOn && ['wmp-classic','wmp-library','organic'].includes(preferences.style)
+  const referenceSidebar = screenOn && referenceWidth >= 480 && sideListOpen && ['wmp-classic','dark-playlist','organic'].includes(preferences.style)
+  const deckInfo = screenOn && preferences.style === 'jetaudio' && !panel
+  const referenceTabs = jsxs('div',{role:'tablist','aria-label':'Screen view','aria-orientation':referenceNavigation?'vertical':'horizontal',onKeyDown:event=>{
+    const views=['artwork','visualizer','lyrics'],keys=['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];if(!keys.includes(event.key))return
+    event.preventDefault();const i=views.indexOf(activeExpandedView),n=event.key==='Home'?0:event.key==='End'?2:(i+(['ArrowRight','ArrowDown'].includes(event.key)?1:2))%3
+    setActiveExpandedView(views[n]);event.currentTarget.querySelectorAll('[role=tab]')[n]?.focus()
+  },children:['artwork','visualizer','lyrics'].map((view,i)=>button(['Artwork','Visualizer','Lyrics'][i],jsxs('span',{className:'reference-tab-label',children:[playerIcon(view),jsx('span',{children:['Playing','Visual','Lyrics'][i]})]}),()=>setActiveExpandedView(view),{role:'tab',tabIndex:activeExpandedView===view?0:-1,'aria-selected':!panel&&activeExpandedView===view}))})
+  const referenceFaceplate = jsxs('section', {
+    ref:containerRef,className:`spotify-surface spotify-quicktime spotify-reference-${preferences.style}`,'data-style':preferences.style,
+    'data-skin':preferences.style,'data-screen':preferences.mode,'data-panel':panel,'data-wide':referenceWidth>=480,'data-navigation':referenceNavigation,'data-sidebar':referenceSidebar,'data-visible':visible,'data-reduced-motion':reducedMotion,
+    style:{width:referenceWidth,height:playerFrameHeight(preferences.mode,scale,preferences.style,availableWidth),gridTemplateColumns:referenceNavigation?`${referenceWidth>=480?'78px':'28px'} minmax(0,1fr)${referenceSidebar?' 150px':''}`:referenceSidebar?'minmax(0,1fr) 150px':deckInfo?'minmax(0,1fr) 70px':undefined},
+    children:[
+      jsx('style',{children:PLAYER_CSS}),
+      jsxs('header',{className:'qt-titlebar',children:[jsx('span',{className:'qt-title-studs','aria-hidden':true,children:'● ● ●'}),jsx('strong',{title:player.title||'Spotify',children:player.title||'Spotify'}),screenButton]}),
+      screenOn ? jsxs('div',{className:'qt-tools',children:[searchButton,likeButton,playlistButton,tasteButton,referenceNavigation?null:referenceTabs]}) : null,
+      screenOn ? jsx('div',{className:'spotify-screen qt-movie',style:{gridColumn:referenceNavigation?2:1},children:preferences.style==='wmp-library'&&!panel&&activeExpandedView==='artwork'?jsxs('div',{className:'reference-current-grid',children:[jsxs('article',{children:[jsx('div',{className:'reference-current-art',children:screenContent}),jsx('strong',{children:player.title||'No current track'}),jsx('span',{children:player.artist||'Spotify'})]}),jsx('p',{children:'Now playing · Search opens a track grid'})]}):displayContent}) : jsx('div',{className:'qt-compact-copy',children:error?jsx('span',{role:'alert',children:error}):`${player.artist||'Spotify'} · ${formatTime(player.positionSeconds)} / ${formatTime(durationSeconds)}`}),
+      !miniMode ? jsxs('div',{className:'qt-scrub',children:[jsx('span',{children:formatTime(player.positionSeconds)}),jsx(NativeRange,{label:'Seek Spotify',value:Number(player.positionSeconds||0),max:durationSeconds,disabled:busy||!durationSeconds,onCommit:value=>act('seek',value)})]}) : null,
+      jsxs('div',{className:'qt-bottom',children:[
+        jsx('div',{className:'qt-volume',children:jsx(NativeRange,{label:'Spotify volume',value:Number(player.volume||0),max:100,disabled:busy||!player.running,onCommit:value=>act('volume',value)})}),
+        jsxs('div',{className:'qt-transport',children:[
+          button('Previous track',playerIcon('previous'),()=>void act('previous'),{disabled:busy||!player.running}),
+          button('Seek backward 10 seconds',playerIcon('rewind'),()=>void act('seek',Math.max(0,Number(player.positionSeconds||0)-10)),{disabled:busy||!durationSeconds}),
+          button(isPlaying?'Pause Spotify':'Play Spotify',jsx(isPlaying?icons.Pause:icons.Play,{}),()=>void act(isPlaying?'pause':'play'),{className:'qt-main-play',disabled:busy,'aria-busy':busy}),
+          button('Seek forward 10 seconds',playerIcon('forward'),()=>void act('seek',Math.min(durationSeconds,Number(player.positionSeconds||0)+10)),{disabled:busy||!durationSeconds}),
+          button('Next track',playerIcon('next'),()=>void act('next'),{disabled:busy||!player.running})
+        ]}),settingsButton
+      ]}),
+      referenceNavigation?jsx('nav',{className:'reference-navigation','aria-label':'Music navigation',children:referenceTabs}):null,
+      referenceSidebar?jsx('aside',{className:'reference-playlist-side','aria-label':'Playlist targets',style:{gridColumn:referenceNavigation?3:2},children:accountDisconnected?jsxs('div',{className:'reference-side-message',children:[jsx('p',{children:'Connect Spotify for playlist targets'}),button('Connect Spotify',playerIcon('settings'),()=>showPanel('auth'))]}):jsx(SpotifyPlaylistDialog,{embedded:true,open:true,autoFocus:false,onOpenChange:()=>{setSideListOpen(false);requestAnimationFrame(()=>containerRef.current?.querySelector('[aria-label="Add current track to playlist"]')?.focus())},track:player})}):null,
+      deckInfo?jsxs('aside',{className:'reference-deck-info','aria-label':'Current track counters',children:[jsx('span',{children:'POSITION'}),jsx('strong',{children:formatTime(player.positionSeconds)}),jsx('span',{children:'DURATION'}),jsx('strong',{children:formatTime(durationSeconds)}),jsx('span',{children:'VOLUME'}),jsx('strong',{children:`${Number(player.volume||0)}%`}),jsx('span',{children:player.running?'SPOTIFY':'APP CLOSED'})]}):null
+    ]
+  })
   const faceplate = jsxs('section', {
     ref: containerRef,
     'data-visible': visible,
+    'data-reduced-motion': reducedMotion,
     'data-skin': 'retro-chrome',
+    'data-style': 'silver',
     'data-screen': preferences.mode,
     'data-finish': preferences.skin,
     className: 'spotify-surface',
-    style: { transform: `scale(${scale})` },
+    style: { transform: `scale(${scale})`, '--player-scale':scale, height:playerFrameHeight(preferences.mode,scale,'silver')/scale },
     children: [
       jsx('style', { children: PLAYER_CSS }),
       screenOn ? jsxs('div', { className: 'spotify-upper', children: [
@@ -1676,7 +2001,7 @@ function NativePlayer() {
             button('Lyrics', jsxs('span',{className:'spotify-tab-label',children:[playerIcon('lyrics'),jsx('span',{children:'Lyrics'})]}), () => setActiveExpandedView('lyrics'), { role: 'tab', tabIndex: activeExpandedView === 'lyrics' ? 0 : -1, 'aria-selected': !panel && activeExpandedView === 'lyrics' })
           ]}),
         jsxs('div', { className: 'spotify-display', children: [
-          jsx('div', { className: 'spotify-screen', children: error ? jsxs('div',{role:'alert',className:'spotify-lyrics-message',children:[jsx('p',{children:error}),button('Retry Spotify status','Retry',()=>void act('status'),{disabled:busy})]}) : settingsOpen ? settingsContent : panel === 'search' ? jsx(SpotifySearchDialog, {embedded:true,onClose:closePanel}) : panel === 'playlists' ? jsx(SpotifyPlaylistDialog,{embedded:true,open:true,onOpenChange:closePanel,track:player}) : panel === 'auth' ? jsx(SpotifyAuthDialog,{embedded:true,onClose:closePanel}) : screenContent }),
+          jsx('div', { className: 'spotify-screen', children: displayContent }),
           jsx('div', { className: 'spotify-lcd', children: trackCopy })
         ] }),
         jsxs('div', { className: 'spotify-side-controls', children: [tasteButton, screenButton, settingsButton] })
@@ -1696,22 +2021,35 @@ function NativePlayer() {
     className: 'spotify-retro-viewport',
     children: jsx('div', {
       className: 'spotify-retro-stage',
-      style: { width: 320 * scale, height: (screenOn ? 280 : miniMode ? 88 : 112) * scale },
-      children: faceplate
+      style: { width: referenceWidth, height: playerFrameHeight(preferences.mode, scale, preferences.style,availableWidth) },
+      children: preferences.style !== 'silver' ? referenceFaceplate : faceplate
     })
   })
 }
 
 
-function ScreenPanel({open, onOpenChange, children}) {
+function ScreenPanel({open, onOpenChange, children, className = '', autoFocus = true}) {
   const ref = useRef(null)
-  useEffect(() => { ref.current?.querySelector('input:not(:disabled),button')?.focus() }, [])
-  return open ? jsxs('section', {ref, className:'spotify-panel', 'aria-label':'Spotify screen panel', onKeyDown:event=>{if(event.key==='Escape'){event.stopPropagation();onOpenChange(false)}}, children:[
+  useEffect(() => {
+    if(!open||!autoFocus)return undefined
+    const opener=document.activeElement, panel=ref.current
+    ;(panel?.querySelector('input:not(:disabled)')||panel?.querySelector('button:not(:disabled)'))?.focus()
+    return ()=>{
+      // Restore after Close/Escape/unmount, but do not steal focus from a
+      // different shell tab/button the user deliberately selected.
+      if(opener?.isConnected && (document.activeElement===document.body||panel?.contains(document.activeElement)))opener.focus?.()
+    }
+  }, [open, autoFocus])
+  return open ? jsxs('section', {ref, className:'spotify-panel '+className, 'aria-label':'Spotify screen panel', onKeyDown:event=>{if(event.key==='Escape'){event.stopPropagation();onOpenChange(false)}}, children:[
     jsx('button',{type:'button',className:'spotify-panel-close','aria-label':'Close screen panel',title:'Close screen panel',onClick:()=>onOpenChange(false),children:'×'}),children
   ]}) : null
 }
 
-function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false }) {
+function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false, autoFocus = true }) {
+  // Pin the menu's target. A song change must not silently change the track added.
+  const [selectedTrack, setSelectedTrack] = useState(track)
+  const [reload, setReload] = useState(0)
+  useEffect(() => { if(open)setSelectedTrack(track) }, [open])
   const [playlists, setPlaylists] = useState([])
   const [playlistQuery, setPlaylistQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1737,16 +2075,16 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false }) 
     return () => {
       cancelled = true
     }
-  }, [open])
+  }, [open, reload])
 
   const addToPlaylist = async playlist => {
-    if (!track.spotifyUrl || addingId) return
+    if (!selectedTrack.spotifyUrl || addingId) return
     setAddingId(playlist.id)
     setError('')
     try {
       await runNativeSpotify('playlist-add', JSON.stringify({
         playlistId: playlist.id,
-        uri: track.spotifyUrl
+        uri: selectedTrack.spotifyUrl
       }))
       host.notify({ kind: 'success', message: `Added to ${playlist.name}.` })
       onOpenChange(false)
@@ -1762,9 +2100,23 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false }) 
     ? playlists.filter(playlist => playlist.name.toLocaleLowerCase().includes(normalizedQuery))
     : playlists
 
+  if(embedded)return jsx(ScreenPanel,{open,onOpenChange,className:'spotify-playlist-host',children:
+    jsxs('div',{className:'spotify-playlist-panel',children:[
+      jsx('header',{children:jsx('h2',{children:'Add to playlist'})}),
+      jsx('p',{className:'spotify-playlist-track',title:`${selectedTrack.title} — ${selectedTrack.artist||'Spotify'}`,children:selectedTrack.title||'Choose a playlist'}),
+      playlists.length>5?jsx('input',{'aria-label':'Filter playlists',placeholder:'Filter playlists…',value:playlistQuery,onChange:event=>setPlaylistQuery(event.target.value)}):null,
+      loading?jsx('p',{role:'status',children:'Loading playlists…'}):error?null:
+      jsx('div',{className:'spotify-playlist-rows','aria-label':'Available playlists',children:visiblePlaylists.length?visiblePlaylists.map(playlist=>jsx('button',{
+        type:'button',title:playlist.name,'aria-label':`Add to ${playlist.name}`,disabled:!!addingId,onClick:()=>void addToPlaylist(playlist),
+        children:jsx('span',{children:addingId===playlist.id?'Adding…':playlist.name})
+      },playlist.id)):jsx('p',{children:playlistQuery?'No matching playlists.':'No playlists found.'})}),
+      error?jsxs('div',{role:'alert',className:'spotify-playlist-error',children:[jsx('p',{children:error}),!addingId?jsx('button',{type:'button',title:'Reload playlists',onClick:()=>setReload(x=>x+1),children:'Reload playlists'}):null]}):null
+    ]})})
+
   return jsx(embedded ? ScreenPanel : Dialog, {
     open,
     onOpenChange,
+    ...(embedded ? {autoFocus} : {}),
     children: jsx(embedded ? 'div' : DialogContent, {
       className: 'max-w-sm gap-0 overflow-hidden p-0',
       children: jsxs('div', {
@@ -1774,7 +2126,7 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false }) 
             children: [
               jsx(embedded ? 'h2' : DialogTitle, { children: 'Add to playlist' }),
               jsx(embedded ? 'p' : DialogDescription, {
-                children: track.title ? `${track.title} — ${track.artist || 'Spotify'}` : 'Choose a playlist.'
+                children: selectedTrack.title ? `${selectedTrack.title} — ${selectedTrack.artist || 'Spotify'}` : 'Choose a playlist.'
               })
             ]
           }),
@@ -2203,7 +2555,7 @@ function SpotifySearchDialog({embedded = false, onClose} = {}) {
           }),
           results.length
             ? jsx('div', {
-                className: 'max-h-80 overflow-y-auto border-t border-(--ui-stroke-secondary) p-1.5',
+                className: 'spotify-search-results max-h-80 overflow-y-auto border-t border-(--ui-stroke-secondary) p-1.5',
                 children: results.map(result =>
                   jsxs('button', {
                     'aria-label': `Play ${result.title} by ${result.artist}`,
@@ -2269,6 +2621,7 @@ export default {
   defaultEnabled: true,
   register(ctx) {
     pluginStorage = ctx.storage
+    hostPreferences = ctx.hostPreferences || null
     openExternal = url => ctx.os.openExternal(url)
     pluginRest = (path, options) => ctx.rest(path, options)
     restControl = (action, argument) =>
@@ -2279,7 +2632,8 @@ export default {
 
     registerPlayerPane = contribution => ctx.register(contribution)
     registeredPaneMode = null
-    updatePlayerPane(playerPreferences(pluginStorage?.get('playerPreferences')).mode)
+    const savedPlayerPreferences = playerPreferences(pluginStorage?.get('playerPreferences'))
+    updatePlayerPane(savedPlayerPreferences.mode, 1, 0, savedPlayerPreferences.style)
 
     ctx.register({
       id: 'persistent-status',

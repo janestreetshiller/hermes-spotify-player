@@ -58,7 +58,7 @@
       "status": "passed"
     },
     {
-      "name": "Settings is text-only and fully fits without scrolling",
+      "name": "Settings keeps text controls plus exactly one reference-layout picker and fully fits without scrolling",
       "status": "passed"
     },
     {

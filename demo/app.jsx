@@ -10,6 +10,10 @@ let player={ok:true,running:true,state:'playing',title:'After hours',artist:'Stu
 const calls=[]; window.demoCalls=calls
 window.demoRefreshAuth = () => queryClient.invalidateQueries({queryKey:['spotify-player','auth-status']})
 window.demoScenario = {}
+let hostReducedMotion=false
+const hostPreferenceListeners=new Set()
+const hostPreferences={get:()=>({reducedMotion:hostReducedMotion}),subscribe:fn=>{hostPreferenceListeners.add(fn);return()=>hostPreferenceListeners.delete(fn)}}
+window.demoSetHostReducedMotion=value=>{hostReducedMotion=Boolean(value);for(const fn of hostPreferenceListeners)fn()}
 window.demoSetPlayer = change => {player={...player,...change};queryClient.setQueryData(['spotify-player','native-status'],{...player})}
 let saved=false
 async function fixture(path,{body}={}) {
@@ -23,6 +27,7 @@ async function fixture(path,{body}={}) {
    if(action==='set-liked')return {ok:true,verified:true,trackCount:body.tracks.length,saved:body.tracks.map(()=>body.saved)}
    if(action==='taste')return {ok:true,sampleCount:0,tracks:[]}
  }
+ if(path.startsWith('/visualizer/'))return {state:'unavailable',message:'This demo has no live audio source. Use the installed macOS player.'}
  if(path==='/auth/status')return {ok:true,loggedIn:true,clientConfigured:true}
  if(action==='status')return {...player}
  if(action==='saved-status')return {ok:true,uri:argument,saved}
@@ -43,7 +48,7 @@ Keep the music beside the work.`,syncedLyrics:`[00:00.00] An original demo lyric
  if(action==='play-uri')player.state='playing'
  return {...player}
 }
-plugin.register({register,rest:fixture,storage:{get:key=>{try{return JSON.parse(localStorage.getItem('spotify-demo:'+key))}catch{return null}},set:(key,value)=>localStorage.setItem('spotify-demo:'+key,JSON.stringify(value))},os:{openExternal:url=>window.open(url,'_blank','noopener')}})
+plugin.register({register,rest:fixture,hostPreferences,storage:{get:key=>{try{return JSON.parse(localStorage.getItem('spotify-demo:'+key))}catch{return null}},set:(key,value)=>localStorage.setItem('spotify-demo:'+key,JSON.stringify(value))},os:{openExternal:url=>window.open(url,'_blank','noopener')}})
 const pane=contributions.find(c=>c.area==='panes'), status=contributions.find(c=>c.area==='statusBar.right')
 function App(){const [footer,setFooter]=useState(true);window.demoUnmountFooter=()=>setFooter(false);const [size,setSize]=useState(280),[width,setWidth]=useState(340),[shown,setShown]=useState(true);const [,refresh]=useState(0);useEffect(()=>{onPaneUpdate=()=>refresh(v=>v+1);refresh(v=>v+1);return()=>{onPaneUpdate=()=>{}}},[]); return <QueryClientProvider client={queryClient}>
  <main className="composition"><header className="brand"><span>Hermes <b>×</b> Spotify</span><span className="edition">RETRO PLAYER / 1.3</span></header>

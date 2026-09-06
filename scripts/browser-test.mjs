@@ -127,14 +127,27 @@ try{
  assert.equal(await page.locator('.spotify-metal canvas').count(),0)
  await page.emulateMedia({reducedMotion:'no-preference'})
  await page.getByRole('tab',{name:'Visualizer',exact:true}).click()
- await page.getByLabel('XP ambient visualizer').waitFor()
+ await page.getByLabel('Spotify audio visualizer').waitFor()
  const painted=()=>page.locator('.spotify-visualizer canvas').evaluate(c=>c.toDataURL())
  const still=await painted();await page.waitForTimeout(300)
- assert.notEqual(await painted(),still,'selected XP view animates actual canvas pixels')
+ assert.equal(await painted(),still,'no ambient activity without a source')
+ assert.equal(await page.evaluate(()=>window.demoCalls.filter(c=>c.action==='/visualizer/start').length),0,'opening the view must not capture audio')
+ // Deliberately synthetic test data. Production never fabricates a source.
+ await page.evaluate(()=>{
+  window.demoScenario['/visualizer/start']={delay:0,response:{state:'starting',lease:'fixture-spectrum'}}
+  window.demoScenario['/visualizer/frame?lease=fixture-spectrum']={delay:0,response:{state:'streaming',sequence:1,bands:Array.from({length:32},(_,i)=>i<20?.65:0),wave:Array.from({length:64},(_,i)=>Math.sin(i/4)*.3),rms:.2}}
+  window.demoScenario['/visualizer/stop']={delay:0,response:{state:'off'}}
+ })
+ await page.getByRole('button',{name:'Enable Spotify audio analysis',exact:true}).click()
+ await page.locator('[data-audio-state=streaming]').waitFor()
+ assert.notEqual(await painted(),still,'actual supplied FFT frame drives the pixels')
+ const fixedFrame=await painted();await page.waitForTimeout(250)
+ assert.equal(await painted(),fixedFrame,'unchanged audio data must not invent motion')
  await page.emulateMedia({reducedMotion:'reduce'})
  await page.waitForTimeout(150)
  const reducedFrame=await painted();await page.waitForTimeout(250)
  assert.equal(await painted(),reducedFrame,'reduced motion freezes the visualizer')
+ assert.ok(await page.evaluate(()=>window.demoCalls.some(c=>c.action==='/visualizer/stop')),'reduced motion must release the audio source')
  await page.emulateMedia({reducedMotion:'no-preference'})
  await page.locator('.product').screenshot({path:'docs/media/player-visualizer.png'})
  await page.getByRole('button',{name:'Turn screen off',exact:true}).click()

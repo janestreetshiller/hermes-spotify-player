@@ -1,0 +1,11 @@
+{
+  "source": "isolated Chromium; synthetic host preferences and audio frames",
+  "pluginSha256": "77c81c1db3bfbb6e659acf989f92a930192aa20033cf8d92ff43af5b5ee7b284",
+  "results": [
+    "Close restores playlist opener; next Tab reaches Artwork, not document start",
+    "Escape restores opener and preserves next-Tab order",
+    "Switching tabs does not steal focus back to old opener",
+    "Native-host reduced motion stops audio, removes GPU canvas, disables animation and enable control",
+    "Host motion opt-out cannot override OS reduced motion"
+  ]
+}

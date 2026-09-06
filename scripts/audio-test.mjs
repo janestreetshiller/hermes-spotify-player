@@ -1,0 +1,80 @@
+// Production renderer, synthetic frames. Never authorizes or captures real audio.
+import {chromium} from 'playwright'
+import assert from 'node:assert/strict'
+import {createServer} from 'node:http'
+import {readFile,mkdir,writeFile} from 'node:fs/promises'
+const assets=new Map(await Promise.all([['/','index.html','text/html'],['/app.js','app.js','text/javascript'],['/style.css','style.css','text/css'],['/artwork.webp','artwork.webp','image/webp']].map(async([url,file,type])=>[url,{body:await readFile('docs/demo/'+file),type}])))
+const server=createServer((req,res)=>{const a=assets.get(req.url);res.writeHead(a?200:404,{'Content-Type':a?.type||'text/plain'});res.end(a?.body)})
+await new Promise(r=>server.listen(0,'127.0.0.1',r))
+const browser=await chromium.launch({headless:true})
+const page=await browser.newPage({viewport:{width:1100,height:850},deviceScaleFactor:2})
+const errors=[];page.on('pageerror',error=>errors.push(error.message));page.setDefaultTimeout(5000)
+const shell=page.locator('.spotify-surface'),button=name=>shell.getByRole('button',{name,exact:true})
+const calls=action=>page.evaluate(action=>window.demoCalls.filter(c=>c.action===action).length,action)
+const pixels=()=>page.locator('.spotify-visualizer canvas').evaluate(c=>c.toDataURL())
+const configure=async(state='streaming')=>page.evaluate(state=>{
+ window.demoScenario['/visualizer/start']={delay:0,response:{state:'starting',lease:'test'}}
+ window.demoScenario['/visualizer/frame?lease=test']={delay:0,response:{state,sequence:state==='streaming'?1:2,bands:Array.from({length:32},(_,i)=>state==='silent'?0:Math.max(0,.85-i/45+Math.sin(i*1.4)*.12)),wave:Array.from({length:64},(_,i)=>state==='silent'?0:Math.sin(i/3)*.45),rms:state==='silent'?0:.23}}
+ window.demoScenario['/visualizer/stop']={delay:0,response:{state:'off'}}
+},state)
+const results=[]
+try {
+ await mkdir('docs/evidence/audio',{recursive:true})
+ await page.goto(`http://127.0.0.1:${server.address().port}/`)
+ await shell.getByRole('tab',{name:'Visualizer',exact:true}).click()
+ await button('Enable Spotify audio analysis').waitFor()
+ assert.equal(await calls('/visualizer/start'),0)
+ const still=await pixels();await page.waitForTimeout(350);assert.equal(await pixels(),still)
+ await shell.screenshot({path:'docs/evidence/audio/fixture-opt-in.png'})
+ results.push('No capture or animation before opt-in')
+ for(const [style,label] of [['spectrum','Spectrum analyzer'],['scope','Oscilloscope waveform'],['alchemy','WMP-inspired Alchemy']]) {
+  await button('Player settings').click();await page.getByRole('radio',{name:label,exact:true}).check();await button('Player settings').click()
+  await configure();await button('Enable Spotify audio analysis').click();await page.locator('[data-audio-state=streaming]').waitFor()
+  await page.waitForTimeout(100)
+  const first=await pixels();await page.waitForTimeout(300);assert.equal(await pixels(),first,'same frame gives same pixels, no clock-driven filler')
+  await shell.screenshot({path:`docs/evidence/audio/fixture-${style}.png`})
+  await configure('silent');await page.locator('[data-audio-state=silent]').waitFor();await page.waitForTimeout(50)
+  assert.notEqual(await pixels(),first,style+' must clear when source becomes silent')
+  await button('Stop audio analysis').click();await button('Enable Spotify audio analysis').waitFor()
+  results.push(style+': data-driven pixels; silence clears; explicit stop works')
+ }
+ await configure();await button('Enable Spotify audio analysis').click();await page.locator('[data-audio-state=streaming]').waitFor()
+ const before=await calls('/visualizer/stop')
+ await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(150)
+ assert.ok(await calls('/visualizer/stop')>before)
+ const reduced=await pixels();await page.waitForTimeout(250);assert.equal(await pixels(),reduced)
+ await page.emulateMedia({reducedMotion:'no-preference'});await page.locator('[data-audio-state=streaming]').waitFor()
+ await page.getByRole('button',{name:'Hide pane',exact:true}).click();await page.waitForTimeout(150)
+ assert.ok(await calls('/visualizer/stop')>before+1)
+ const count=await calls('/visualizer/frame?lease=test');await page.waitForTimeout(300);assert.equal(await calls('/visualizer/frame?lease=test'),count)
+ await page.getByRole('button',{name:'Show pane',exact:true}).click()
+ await button('Enable Spotify audio analysis').waitFor()
+ results.push('Reduced motion and unmount stop source and polling')
+ await page.evaluate(()=>window.demoScenario['/visualizer/start']={delay:0,response:{state:'permission-required',message:'Grant macOS recording permission, then retry.'}})
+ await button('Enable Spotify audio analysis').click();await page.getByText('Grant macOS recording permission, then retry.',{exact:true}).waitFor()
+ assert.equal(await page.locator('[data-audio-state=streaming]').count(),0)
+ results.push('Permission failure is explicit, not simulated audio')
+ await page.evaluate(()=>window.demoScenario['/visualizer/start']={delay:650,response:{state:'starting',lease:'late-lease'}})
+ await button('Enable Spotify audio analysis').click()
+ await shell.getByRole('tab',{name:'Artwork',exact:true}).click()
+ await page.waitForFunction(()=>window.demoCalls.some(c=>c.action==='/visualizer/stop'&&c.body?.lease==='late-lease'))
+ assert.equal(await calls('/visualizer/frame?lease=late-lease'),0,'late consent response must be stopped, not polled after unmount')
+ results.push('Late start response after closing the view is explicitly stopped without frame polling')
+ // The cramped picker regression and track-at-menu-open race use fixtures only.
+ await page.evaluate(()=>window.demoScenario.playlists={delay:0,response:{ok:true,playlists:Array.from({length:30},(_,i)=>({id:'p'+i,name:'Playlist '+i+' — long reference test name'}))}})
+ await button('Add current track to playlist').click();await button('Add to Playlist 0 — long reference test name').waitFor()
+ for(const width of [234,340]) {
+  await page.locator('.product').evaluate((e,width)=>e.style.width=width+'px',width);await page.waitForTimeout(120)
+  const box=await page.locator('.spotify-playlist-rows').evaluate(e=>{const r=e.getBoundingClientRect(),b=e.querySelector('button').getBoundingClientRect(),s=e.closest('.spotify-screen').getBoundingClientRect();return {row:r.toJSON(),button:b.toJSON(),screen:s.toJSON()}})
+  assert.ok(box.button.top>=box.row.top-1&&box.button.bottom<=box.row.bottom+1&&box.row.bottom<=box.screen.bottom+1,'first playlist row must be visibly reachable without an offscreen AX press')
+  await shell.screenshot({path:`docs/evidence/audio/fixture-playlist-${width}.png`})
+ }
+ await page.evaluate(()=>window.demoSetPlayer({title:'Song changed during picker',spotifyUrl:'spotify:track:next'}))
+ await button('Add to Playlist 0 — long reference test name').click();await page.waitForTimeout(250)
+ const added=await page.evaluate(()=>JSON.parse(window.demoCalls.filter(c=>c.action==='playlist-add').at(-1).argument))
+ assert.equal(added.uri,'spotify:track:demo123','menu target stays pinned to the song displayed when opened')
+ results.push('Playlist rows visible at 234/340px; song target pinned across playback changes')
+ assert.deepEqual(errors,[])
+ await writeFile('docs/evidence/audio/fixture-results.json',JSON.stringify({source:'synthetic frames and Spotify fixtures, not live account operations',results},null,2))
+ console.log(results.join('\n'))
+} finally {await browser.close();await new Promise(r=>server.close(r))}

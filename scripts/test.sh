@@ -6,8 +6,11 @@ cd "$ROOT"
 
 node scripts/vendor-metal-fx.mjs --check
 node --test desktop/*.test.mjs
-python -m unittest discover -s tests -p 'test_plugin_api.py' -v
-python -m compileall -q dashboard/plugin_api.py tests/test_plugin_api.py
+PYTHON="${HERMES_PYTHON:-python3}"
+"$PYTHON" -m unittest discover -s tests -p 'test_plugin_api.py' -v
+"$PYTHON" -m unittest discover -s tests -p 'test_audio_visualizer.py' -v
+"$PYTHON" -m compileall -q dashboard tests
+"$PYTHON" scripts/test-audio-native.py
 
 if [ "$(uname -s)" = "Darwin" ]; then
   TEST_HOME=$(mktemp -d "${TMPDIR:-/tmp}/spotify-player-install.XXXXXX")

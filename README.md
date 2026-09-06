@@ -8,19 +8,24 @@ A native Spotify side pocket for [Hermes Desktop](https://hermes-agent.nousresea
 
 It keeps playback inside the desktop workflow without embedding Spotify's Widevine-protected web player. Hermes controls the signed-in Spotify macOS app locally, while its scoped backend uses Hermes' existing Spotify PKCE connection for catalog and library actions.
 
+## 1.3 candidate status
+
+This working tree contains a release candidate, not a completed native-window acceptance or historic-player collection. The published demo/release may represent an earlier build. See [candidate scope and verification limits](docs/PLAYER-CLEANUP.md). The separate TERMIN8 prototype is not part of this public plugin.
+
 ## Features
 
 - One-click **screen-on / screen-off**, each auto-fitted to its scaled shell and host header
 - Original silver player with full, screen-off and compact mini modes; proportion-preserving frame sizing
-- Three persistent finishes: Classic chrome, Ice blue, and Graphite; text-only settings that fit without scrolling
-- Artwork, themed lyrics, or an XP-style ambient visualizer inside the display
+- Persistent reference-layout picker, separate from Classic chrome / Ice blue / Graphite finishes; [complete source-image accounting and adaptation limits](docs/reference-styles.json)
+- Silver settings and metadata retain a 10px logical font floor at tested narrow widths; compact height has a 70px readability floor
+- Artwork, themed lyrics, or opt-in audio-driven Spectrum, Scope and Alchemy-inspired visualizers ([source and limits](docs/AUDIO-VISUALIZERS.md))
 - Play/pause, previous, next, seek, and volume controls
 - One shared status cache: 4s playing / 15s paused / 30s stopped or error; no hidden-window status polling
 - Nokie-inspired finite focus glow and CSS-only Web Design Factory-style loading bars
 - Default **Alloy / metal-fx@1.0.4** silver ring on play/pause, from the linked Artifact Library: actual upstream shader/renderer, 12fps cap, 96×96 shared GPU buffer, DPR 1; released when paused, hidden, offscreen, reduced-motion, or collapsed
 - Search and play tracks inside the screen or from the command palette
 - Like/unlike the current track, with automatic liked-state lookup and distinct loading/disconnected indicators
-- Add the current track to a playlist
+- Add a track to a playlist; the picker pins the displayed song so playback changes cannot silently replace the selection
 - **Taste palette** side control: private playlist creation, batch like/unlike, recent-liked taste sample, and an editable LLM prompt
 - `spotify_player_curate`: single-call creation from exact song names or track URIs, verified reads after writes, and retry protection ([usage](docs/CURATION.md))
 - Synced lyrics when LRCLIB has a match
@@ -34,6 +39,9 @@ It keeps playback inside the desktop workflow without embedding Spotify's Widevi
 - Spotify **1.2.98.301** tested on macOS 27 ARM64 (matches Homebrew metadata at verification)
 - Spotify for macOS, signed in
 - A Spotify developer Client ID for search, likes, and playlists (the in-app PKCE setup walks through this)
+- Optional audio visualizers: macOS 13+, Xcode Command Line Tools to compile the local helper, and macOS Screen & System Audio Recording permission. Ordinary controls do not require audio capture or its compiler.
+
+The silver design space is 320×280. Its shell scales with content width while settings/metadata keep a 10px logical font floor; mini mode reserves at least 70px height. Reference application layouts expand up to 720px and reveal independent playlist-target panels at 480px where applicable. Narrow layouts retain the same actions without squeezing three columns together. Fixtures cover 234px and wider hosts; geometric/typographic checks do not replace native or reference-fidelity acceptance.
 
 Playback control is local through Spotify's macOS automation interface. Search, library, and playlist actions use Spotify's official Web API through Hermes' built-in Spotify client.
 
@@ -44,7 +52,7 @@ hermes plugins install janestreetshiller/hermes-spotify-player --enable
 ~/.hermes/plugins/spotify-player/scripts/install-desktop.sh
 ```
 
-Then **quit and reopen Hermes Desktop after saving active work** so its own `hermes serve` backend mounts the newly installed routes. Restarting the messaging gateway alone does not refresh an already-running Desktop backend. Open **Settings → Plugins** and enable **Spotify Player** if its saved desktop toggle is off. Run **Cmd+K → Reload desktop plugins** for subsequent JavaScript-only edits. The player appears below the Sessions pane. You can move it like any other pane; the screen toggle automatically fits its vertical allocation, and width changes uniformly scale the shell.
+Then **quit and reopen Hermes Desktop after saving active work** so its own `hermes serve` backend mounts the newly installed routes. Restarting the messaging gateway alone does not refresh an already-running Desktop backend. Open **Settings → Plugins** and enable **Spotify Player** if its saved desktop toggle is off. Run **Cmd+K → Reload desktop plugins** for subsequent JavaScript-only edits. The player appears below the Sessions pane. You can move it like any other pane; the screen toggle automatically fits its vertical allocation, and width changes resize the selected layout; the silver shell scales without shrinking settings/metadata below their logical font floor.
 
 Hermes deliberately separates Python gateway plugins from native desktop UI plugins. The first command installs and enables the scoped backend. The script links `desktop/plugin.js` into `$HERMES_HOME/desktop-plugins/spotify-player/` so Hermes Desktop can hot-load it.
 
@@ -73,6 +81,8 @@ The setup dialog reads Hermes' configured redirect URI, including a custom `HERM
 ## Privacy and network access
 
 - No telemetry or analytics.
+- Audio analysis is off until **Enable audio** is selected. ScreenCaptureKit is configured for the Spotify app, with no microphone or screen-frame output. Derived spectrum/waveform data stays between the local helper, scoped backend and player UI; no audio recording is saved or uploaded.
+- A session-scoped helper stops when the visualizer is stopped, paused, hidden, collapsed or motion-reduced; abandoned viewer leases expire after five seconds.
 - Local playback commands go to the installed Spotify macOS app through `/usr/bin/osascript`.
 - Search, library, playlist, and authorization calls go to Spotify through Hermes' built-in Spotify client.
 - Lyrics requests send track title, artist, album, and duration to [LRCLIB](https://lrclib.net/). Lyrics are cached in memory for the running gateway process.
@@ -102,7 +112,8 @@ hermes plugins remove spotify-player
 npm ci --include=dev
 npx playwright install chromium
 npm run demo:build
-npm run test:browser
+npm run test:browser  # includes audio and focus/motion fixture regressions
+npm run test:stress
 npm run demo:media  # needs ffmpeg
 npm run poster:render  # portrait + landscape from the supplied base image
 # Opt-in: briefly changes and restores native playback
@@ -119,7 +130,9 @@ For a live smoke test:
 
 The Nokie reference is its current 0.1.0 desktop design (remote main `e5ddecb70e40`, local style source inspected without editing it). This remains a **Hermes plugin**, not a Nokie/Tauri plugin or a claimed Nokie SDK integration. No Nokie runtime dependencies are bundled.
 
-The installed plugin reuses Hermes React and React Query. Demo-only npm dependencies are not required at runtime. WebGL is decorative, **not audio-reactive**; there is no microphone, audio capture, playback SDK, embedded Spotify site, analytics, or resident helper daemon. A transient `osascript` runs on status polls and commands. The status bar remains active if the pane closes.
+The installed plugin reuses Hermes React and React Query. Demo-only npm dependencies are not required at runtime. The Alloy WebGL play-button ring remains decorative; the separate canvas visualizers consume measured Spotify audio. There is no microphone use, playback SDK, embedded Spotify site or analytics. Ordinary controls use transient `osascript` commands. Explicit audio analysis additionally compiles/caches and launches a bounded, session-scoped native helper; it is not an always-on service. The status bar remains active if the pane closes.
+
+Audio frames are capped at 12Hz, with one in-flight client request and stale-data clearing. Missing permission/source/compiler is reported rather than replaced with ambient activity. OS reduced motion, and a host-supplied reduction preference where available, disable visualizer/GPU activity. Runtime CPU/RSS and final native Hermes-window acceptance for this continuation remain release gates; no cross-version macOS certification is claimed from the deployment target alone.
 
 Spotify search, likes, and playlist APIs require separate PKCE authorization and applicable Spotify account/app access. Current `/me/library`, `/me/library/contains`, and playlist `/items` routes replace removed convenience methods in Hermes. API errors are surfaced rather than retried aggressively. No claim of live OAuth verification is made without a connected account.
 

@@ -345,7 +345,7 @@
   {
     "mode": "playlists",
     "label": "Add to Focus sessions",
-    "title": "Add current track to Focus sessions",
+    "title": "Focus sessions",
     "disabled": false,
     "pressed": null
   },

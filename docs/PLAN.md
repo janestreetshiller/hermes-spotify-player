@@ -12,7 +12,7 @@
 2. Visible-only timeline/lyrics ticks; no continuous lyric RAF. Static status label. Lyrics only while expanded and visible.
 3. Native seek and strict finite volume/seek validation before any process launch. Serialize/cache native snapshots briefly to coalesce clients without running a daemon. Preserve Spotify API search/library/playlists.
 4. Nokie focus perimeter, finite interaction glow, CSS-only loading indicator inspired by Web Design Factory. Opt-in small WebGL signal field, capped resolution/frame rate, off when hidden, paused or reduced motion; dispose GPU resources.
-5. Maintain no web player, embedded browser, audio capture, analytics, shell interpolation, or additional runtime dependencies.
+5. Maintain no embedded Spotify web player, microphone capture, analytics or shell interpolation. The later explicit visualizer request supersedes the original no-audio-capture plan: optional, consented Spotify-application analysis now uses ScreenCaptureKit and a source-built, session-scoped helper. Ordinary controls remain independent of this optional macOS 13+/Command Line Tools requirement. Document permissions, cache, lifecycle and missing-source states; never substitute fabricated audio activity.
 
 ## Demo and delivery
 - Reuse existing announcement/square composition language after inspecting prior assets. Generate an original FAL artwork layer; never present generated UI as proof.

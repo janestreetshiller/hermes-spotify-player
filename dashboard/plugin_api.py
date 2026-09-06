@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import math
 import io
 import re
@@ -17,7 +18,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from hermes_cli.auth_constants import DEFAULT_SPOTIFY_REDIRECT_URI
 from hermes_cli.auth_spotify import (
     get_spotify_auth_status,
@@ -27,6 +28,44 @@ from hermes_cli.config import get_env_value
 from plugins.spotify.client import SpotifyClient
 
 router = APIRouter()
+
+# Load by sibling path: Hermes, direct diagnostics, and the separate terminal
+# prototype use different module/package names. Importing never starts capture.
+_audio_spec = importlib.util.spec_from_file_location("spotify_audio_visualizer", Path(__file__).with_name("audio_visualizer.py"))
+_audio_module = importlib.util.module_from_spec(_audio_spec)
+_audio_spec.loader.exec_module(_audio_module)
+_AUDIO = _audio_module.AudioVisualizer(Path(__file__).with_name("AudioSpectrum.swift"))
+
+
+class VisualizerStartRequest(BaseModel):
+    consent: bool = Field(default=False, strict=True)
+
+
+class VisualizerStopRequest(BaseModel):
+    lease: str
+
+
+@router.get("/visualizer/status")
+def visualizer_status():
+    return _AUDIO.status()
+
+
+@router.post("/visualizer/start")
+def visualizer_start(request: VisualizerStartRequest):
+    try:
+        return _AUDIO.start(request.consent)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/visualizer/frame")
+def visualizer_frame(lease: str):
+    return _AUDIO.poll(lease)
+
+
+@router.post("/visualizer/stop")
+def visualizer_stop(request: VisualizerStopRequest):
+    return _AUDIO.stop(request.lease)
 
 SCRIPT_PATH = Path(__file__).with_name("spotify_control.js")
 OSASCRIPT = "/usr/bin/osascript"

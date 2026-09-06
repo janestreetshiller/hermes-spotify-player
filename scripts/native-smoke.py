@@ -77,7 +77,7 @@ report = {
     'uncachedSnapshotMedianMs': round(statistics.median(runs), 2),
     'childCpuSecondsAcrossSamples': round(cpu_after.ru_utime + cpu_after.ru_stime - cpu_before.ru_utime - cpu_before.ru_stime, 4),
     'maxChildRssBytesMacOS': cpu_after.ru_maxrss,
-    'caveat': 'Helper costs only, not total Hermes/Spotify memory or battery measurements. Search/library OAuth not configured; not live-tested.'
+    'caveat': 'Helper costs only, not total Hermes/Spotify memory or battery measurements. This probe does not test OAuth or GUI flows; see the dated QA report for separate live coverage.'
 }
 (ROOT / 'docs/evidence').mkdir(exist_ok=True)
 (ROOT / 'docs/evidence/native.json').write_text(json.dumps(report, indent=2) + '\n')

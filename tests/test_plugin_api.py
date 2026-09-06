@@ -479,7 +479,7 @@ class SpotifyPluginApiTests(unittest.TestCase):
                 "client_id": "must-not-leak",
                 "redirect_uri": "http://127.0.0.1:49999/custom/callback",
             }
-        ), patch.object(api, "_configured_spotify_client_id", return_value="configured-client"):
+        ), patch.object(api, "_configured_spotify_client_id", return_value="configured-client"), patch.object(api, "get_env_value", return_value=None):
             response = make_client(api).get("/auth/status")
 
         self.assertEqual(response.status_code, 200)
@@ -489,6 +489,20 @@ class SpotifyPluginApiTests(unittest.TestCase):
         self.assertEqual(body["redirectUri"], "http://127.0.0.1:49999/custom/callback")
         self.assertNotIn("client_id", json.dumps(body))
         self.assertNotIn("must-not-leak", json.dumps(body))
+
+    def test_audio_start_requires_strict_consent_and_uses_public_router(self):
+        api = load_api_module()
+        client = make_client(api)
+        with patch.object(api._AUDIO, 'start', return_value={'state':'starting','lease':'test'}) as start:
+            self.assertEqual(client.post('/visualizer/start',json={'consent':'true'}).status_code,422)
+            start.assert_not_called()
+            response = client.post('/visualizer/start',json={'consent':True})
+            self.assertEqual(response.status_code,200)
+            start.assert_called_once_with(True)
+        self.assertEqual(client.post('/visualizer/start',json={'consent':False}).status_code,400)
+        self.assertEqual(client.get('/visualizer/status').json()['state'],'off')
+        self.assertEqual(client.get('/visualizer/frame?lease=unknown').json()['state'],'off')
+        self.assertEqual(client.post('/visualizer/stop',json={'lease':'unknown'}).status_code,200)
 
     def test_auth_start_uses_a_single_background_pkce_flow(self):
         api = load_api_module()
