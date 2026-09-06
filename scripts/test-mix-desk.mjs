@@ -1,0 +1,91 @@
+import { chromium } from 'playwright'
+import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
+const out = resolve('.test-output/mix-desk'); mkdirSync(out, {recursive:true})
+const render = state => {
+  writeFileSync(`${out}/state.json`, JSON.stringify(state))
+  execFileSync('python3', ['skills/my-mix/scripts/mix_desk.py', '--state', `${out}/state.json`, '--output', `${out}/desk.html`])
+  return pathToFileURL(`${out}/desk.html`).href
+}
+const browser = await chromium.launch({headless:true})
+const page = await browser.newPage()
+const errors=[]; page.on('pageerror', e=>errors.push(e.message))
+await page.addInitScript(()=>{window.sent=[]; window.hermes={send:p=>window.sent.push(p)};document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent='html{font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--foreground:#202522;--muted-foreground:#536158;--border:#939b96;--accent:#2b7450;--card:#fff}body{margin:0}';document.head.prepend(style)})})
+const evidence=[]
+try {
+ for (const mode of ['my-mix','new-tracks','my-favorites']) {
+  await page.goto(render({mode}))
+  await page.getByRole('heading', {name:'Where should the music take you?'}).waitFor({timeout:2000})
+  await page.getByLabel('Mood now').fill('restless')
+  await page.getByRole('button',{name:'Next'}).click()
+  await page.getByRole('button',{name:'Back'}).click()
+  assert.equal(await page.getByLabel('Mood now').inputValue(),'restless')
+  await page.getByRole('button',{name:'Next'}).click()
+  if(mode==='my-favorites')assert.equal(await page.getByLabel('Orbit distance').isDisabled(),true)
+  await page.getByLabel('Sonic texture').selectOption('velvet')
+  await page.getByRole('button',{name:'Next'}).click()
+  await page.getByLabel('Anchor artists or tracks').fill('Artist | Title')
+  await page.getByRole('button',{name:'Build my draft'}).click()
+  const sent=await page.evaluate(()=>window.sent)
+  assert.equal(sent.length,1)
+  const payload=JSON.parse(sent[0].split('\n').at(-1))
+  assert.equal(payload.mode,mode); assert.equal(payload.answers.mood,'restless'); assert.equal(payload.answers.texture,'velvet')
+  assert.equal(payload.action,'draft'); assert.equal(payload.public,false)
+ }
+ const tracks = Array.from({length:8},(_,i)=>({uri:`spotify:track:${String(i).padStart(22,'a')}`,title:`Fixture track ${i} — long title for wrapping verification`,artist:'Fixture artist',reason:'Synthetic UI fixture, not account data'}))
+ for (const width of [320,480,760]) {
+  await page.setViewportSize({width,height:900})
+  await page.goto(render({mode:'my-mix',dryRun:true,name:'UI fixture',tracks}))
+  await page.getByRole('button',{name:'Dry run · no Spotify writes'}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Dry run · no Spotify writes'}).isDisabled(),true)
+  assert.equal(await page.locator('.tracks a').count(),0, 'Song selection must stay inside the mix desk')
+  const title = page.getByRole('button',{name:'Inspect Fixture track 0 — long title for wrapping verification'})
+  await title.click()
+  await page.getByRole('region',{name:'Track details'}).waitFor()
+  assert.equal(page.context().pages().length,1, 'Inspecting a song must not open Spotify or a browser window')
+  await page.getByRole('button',{name:'Close track details'}).click()
+  const bounds=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,small:[...document.querySelectorAll('button,input,select,a')].filter(e=>e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height<44).map(e=>e.textContent),padding:getComputedStyle(document.querySelector('main')).padding,transition:getComputedStyle(document.querySelector('button')).transition}))
+  assert.ok(bounds.scroll<=width,JSON.stringify(bounds)); assert.deepEqual(bounds.small,[])
+  const nav = page.getByRole('navigation', {name:'Track pages'})
+  const navButtons = await nav.locator('button').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().top))
+  assert.equal(navButtons[0],navButtons[1], 'Pagination stays on a deliberate single row')
+  const heights=await page.locator('footer button').evaluateAll(es=>es.map(e=>e.getBoundingClientRect().height))
+  assert.equal(heights[0],heights[1], 'Footer controls share a height')
+  evidence.push(bounds)
+  await page.screenshot({path:`${out}/review-${width}.png`,fullPage:true})
+ }
+ await page.goto(render({mode:'my-mix',name:'UI fixture',tracks,requestId:'test-request-123'}))
+ await page.getByRole('button',{name:'Remove Fixture track 0 — long title for wrapping verification'}).click()
+ await page.getByRole('button',{name:'Move up Fixture track 2 — long title for wrapping verification'}).click()
+ await page.getByRole('button',{name:'Create private playlist'}).click()
+ const approved=JSON.parse((await page.evaluate(()=>window.sent[0])).split('\n').at(-1))
+ assert.equal(approved.action,'approve'); assert.equal(approved.tracks.length,7); assert.equal(approved.tracks[0],tracks[2].uri); assert.equal(approved.public,false)
+ assert.equal(await page.getByRole('button',{name:'Edit brief'}).isDisabled(),true, 'No stale edits while create is pending')
+ await page.emulateMedia({reducedMotion:'reduce'})
+ await page.goto(render({mode:'new-tracks'}))
+ assert.equal(await page.locator('button').first().evaluate(e=>getComputedStyle(e).transitionDuration),'0s')
+ await page.goto(render({mode:'my-favorites',stage:'error',error:'Spotify unavailable; retry after 30 seconds.'}))
+ await page.getByRole('alert').waitFor(); await page.getByRole('button',{name:'Edit brief'}).click()
+ await page.getByLabel('Mood now').waitFor()
+ await page.goto(render({mode:'my-mix',stage:'review',tracks:[]}))
+ assert.equal(await page.getByRole('button',{name:'Create private playlist'}).isDisabled(),true)
+ await page.goto(render({mode:'my-mix',stage:'success',verified:true,url:'https://open.spotify.com/playlist/'+'b'.repeat(22),name:'Synthetic success fixture'}))
+ assert.equal(await page.getByRole('link',{name:'Open playlist in Spotify'}).getAttribute('href'),'https://open.spotify.com/playlist/'+'b'.repeat(22))
+ await page.goto(render({mode:'my-mix'}))
+ await page.evaluate(()=>{delete window.hermes})
+ await page.getByRole('button',{name:'Next'}).click();await page.getByRole('button',{name:'Next'}).click()
+ await page.getByRole('button',{name:'Build my draft'}).click()
+ assert.ok((await page.getByLabel('Request to copy into Hermes').inputValue()).includes('"action":"draft"'))
+ await page.goto(render({mode:'my-mix',dryRun:true,tracks}))
+ await page.evaluate(()=>document.documentElement.style.cssText='--foreground:#eef3ef;--muted-foreground:#abb8ae;--border:#6b786f;--accent:#9cdebd;--card:#18251d;color-scheme:dark;background:#101b14')
+ await page.screenshot({path:`${out}/review-dark.png`,fullPage:true})
+ await page.keyboard.press('Tab')
+ assert.equal(await page.evaluate(()=>document.activeElement.tagName),'BUTTON')
+ assert.deepEqual(errors,[])
+ writeFileSync(`${out}/browser.json`,JSON.stringify({passed:true,modes:3,viewports:evidence,consoleErrors:errors},null,2))
+ console.log(JSON.stringify({passed:true,modes:3,viewports:evidence,consoleErrors:errors},null,2))
+} finally {await browser.close()}

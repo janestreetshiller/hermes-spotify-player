@@ -13,3 +13,5 @@ PYTHON="${HERMES_PYTHON:-python3}"
 "$PYTHON" scripts/test-audio-native.py
 
 "$PYTHON" -m unittest discover -s tests -p 'test_desktop_install.py' -v
+"$PYTHON" -m unittest discover -s tests -p 'test_mix_desk.py' -v
+"$PYTHON" -m unittest discover -s tests -p 'test_skill_install.py' -v
