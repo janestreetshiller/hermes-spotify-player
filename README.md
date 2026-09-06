@@ -2,7 +2,9 @@
 
 A native Spotify side pocket for [Hermes Desktop](https://hermes-agent.nousresearch.com/docs/user-guide/desktop) on macOS.
 
-![Good work. Great music. — poster using user-created retro-computer concept art](docs/media/retro-social.png)
+![Hermes Spotify Player 1.3 — current player UI with simulated playback](docs/media/player-1.3-social.png)
+
+*Product UI rendered from this candidate with demo tracks and generated artwork.*
 
 [Interactive demo](https://janestreetshiller.github.io/hermes-spotify-player/demo/) · [Demo video](docs/media/player-1.3-demo.mp4) · [Verification](docs/VERIFICATION.md) · [Social copy](docs/SOCIAL.md)
 
@@ -52,7 +54,7 @@ hermes plugins install janestreetshiller/hermes-spotify-player --enable
 ~/.hermes/plugins/spotify-player/scripts/install-desktop.sh
 ```
 
-Then **quit and reopen Hermes Desktop after saving active work** so its own `hermes serve` backend mounts the newly installed routes. Restarting the messaging gateway alone does not refresh an already-running Desktop backend. Open **Settings → Plugins** and enable **Spotify Player** if its saved desktop toggle is off. Run **Cmd+K → Reload desktop plugins** for subsequent JavaScript-only edits. The player appears below the Sessions pane. You can move it like any other pane; the screen toggle automatically fits its vertical allocation, and width changes resize the selected layout; the silver shell scales without shrinking settings/metadata below their logical font floor.
+Then **quit and reopen Hermes Desktop after saving active work** so its own `hermes serve` backend mounts the newly installed routes. Restarting the messaging gateway alone does not refresh an already-running Desktop backend. Open **Settings → Plugins** and enable **Spotify Player** if its saved desktop toggle is off. Quit and reopen Desktop after updates as well; the reload command may only discover newly installed plugins. The player appears below the Sessions pane. You can move it like any other pane; the screen toggle automatically fits its vertical allocation, and width changes resize the selected layout; the silver shell scales without shrinking settings/metadata below their logical font floor.
 
 Hermes deliberately separates Python gateway plugins from native desktop UI plugins. The first command installs and enables the scoped backend. The script links `desktop/plugin.js` into `$HERMES_HOME/desktop-plugins/spotify-player/` so Hermes Desktop can hot-load it.
 
@@ -95,7 +97,7 @@ See [PRIVACY.md](PRIVACY.md) for the exact data flow.
 hermes plugins update spotify-player
 ```
 
-Reopen Hermes Desktop after Python backend updates. The desktop file is symlinked into the installed repository, so it follows plugin updates automatically. Use **Cmd+K → Reload desktop plugins** if the UI does not hot-reload.
+Reopen Hermes Desktop after Python backend updates. The desktop file is symlinked into the installed repository, so it follows plugin updates automatically. Quit and reopen Desktop if the UI does not hot-reload.
 
 ## Uninstall
 
