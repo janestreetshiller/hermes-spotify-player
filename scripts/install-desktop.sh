@@ -11,6 +11,14 @@ HERMES_HOME=${HERMES_HOME:-"$HOME/.hermes"}
 DEST="$HERMES_HOME/desktop-plugins/spotify-player"
 SOURCE="$ROOT/desktop/plugin.js"
 
+if [ ! -f "$SOURCE" ]; then
+  printf '%s\n' "Missing desktop source: $SOURCE" >&2
+  exit 1
+fi
+if [ -d "$DEST/plugin.js" ]; then
+  printf '%s\n' "Refusing to replace existing directory: $DEST/plugin.js" >&2
+  exit 1
+fi
 mkdir -p "$DEST"
 if [ -e "$DEST/plugin.js" ] && [ ! -L "$DEST/plugin.js" ]; then
   printf '%s\n' "Refusing to replace existing file: $DEST/plugin.js" >&2
@@ -20,4 +28,4 @@ fi
 ln -sfn "$SOURCE" "$DEST/plugin.js"
 
 printf '%s\n' "Desktop plugin linked: $DEST/plugin.js"
-printf '%s\n' 'Restart the Hermes gateway, then use Cmd+K → Reload desktop plugins.'
+printf '%s\n' 'Quit and reopen Hermes Desktop to load both backend routes and the updated player.'

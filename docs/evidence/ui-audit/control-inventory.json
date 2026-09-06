@@ -1,0 +1,520 @@
+[
+  {
+    "mode": "taste",
+    "label": "Search Spotify",
+    "title": "Search Spotify",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Like current track",
+    "title": "Like current track",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Add current track to playlist",
+    "title": "Add current track to playlist",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Artwork",
+    "title": "Artwork",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Visualizer",
+    "title": "Visualizer",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Lyrics",
+    "title": "Lyrics",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Taste details",
+    "title": "Taste details",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Taste tracks",
+    "title": "Taste tracks",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Taste actions",
+    "title": "Taste actions",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "taste",
+    "label": "Create private playlist",
+    "title": "Create private playlist",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "LLM prompt",
+    "title": "LLM prompt",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Like draft tracks",
+    "title": "Like draft tracks",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Remove draft likes",
+    "title": "Remove draft likes",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Read taste",
+    "title": "Read taste",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Taste palette",
+    "title": "Taste palette",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "taste",
+    "label": "Turn screen off",
+    "title": "Turn screen off",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "taste",
+    "label": "Player settings",
+    "title": "Player settings",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Pause Spotify",
+    "title": "Pause Spotify",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Previous track",
+    "title": "Previous track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "taste",
+    "label": "Next track",
+    "title": "Next track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "settings",
+    "label": "Search Spotify",
+    "title": "Search Spotify",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "settings",
+    "label": "Like current track",
+    "title": "Like current track",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "settings",
+    "label": "Add current track to playlist",
+    "title": "Add current track to playlist",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "settings",
+    "label": "Artwork",
+    "title": "Artwork",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "settings",
+    "label": "Visualizer",
+    "title": "Visualizer",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "settings",
+    "label": "Lyrics",
+    "title": "Lyrics",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "settings",
+    "label": "Taste palette",
+    "title": "Taste palette",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "settings",
+    "label": "Turn screen off",
+    "title": "Turn screen off",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "settings",
+    "label": "Player settings",
+    "title": "Player settings",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "settings",
+    "label": "Pause Spotify",
+    "title": "Pause Spotify",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "settings",
+    "label": "Previous track",
+    "title": "Previous track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "settings",
+    "label": "Next track",
+    "title": "Next track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "search",
+    "label": "Search Spotify",
+    "title": "Search Spotify",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "search",
+    "label": "Like current track",
+    "title": "Like current track",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "search",
+    "label": "Add current track to playlist",
+    "title": "Add current track to playlist",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "search",
+    "label": "Artwork",
+    "title": "Artwork",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "search",
+    "label": "Visualizer",
+    "title": "Visualizer",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "search",
+    "label": "Lyrics",
+    "title": "Lyrics",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "search",
+    "label": "Close screen panel",
+    "title": "Close screen panel",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "search",
+    "label": "Taste palette",
+    "title": "Taste palette",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "search",
+    "label": "Turn screen off",
+    "title": "Turn screen off",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "search",
+    "label": "Player settings",
+    "title": "Player settings",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "search",
+    "label": "Pause Spotify",
+    "title": "Pause Spotify",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "search",
+    "label": "Previous track",
+    "title": "Previous track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "search",
+    "label": "Next track",
+    "title": "Next track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Search Spotify",
+    "title": "Search Spotify",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "playlists",
+    "label": "Like current track",
+    "title": "Like current track",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "playlists",
+    "label": "Add current track to playlist",
+    "title": "Add current track to playlist",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "playlists",
+    "label": "Artwork",
+    "title": "Artwork",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Visualizer",
+    "title": "Visualizer",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Lyrics",
+    "title": "Lyrics",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Close screen panel",
+    "title": "Close screen panel",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Add to Focus sessions",
+    "title": "Focus sessions",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Taste palette",
+    "title": "Taste palette",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "playlists",
+    "label": "Turn screen off",
+    "title": "Turn screen off",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "playlists",
+    "label": "Player settings",
+    "title": "Player settings",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "playlists",
+    "label": "Pause Spotify",
+    "title": "Pause Spotify",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Previous track",
+    "title": "Previous track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "playlists",
+    "label": "Next track",
+    "title": "Next track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Search Spotify",
+    "title": "Search Spotify",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "auth",
+    "label": "Like current track",
+    "title": "Like current track",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "auth",
+    "label": "Add current track to playlist",
+    "title": "Add current track to playlist",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "auth",
+    "label": "Artwork",
+    "title": "Artwork",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Visualizer",
+    "title": "Visualizer",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Lyrics",
+    "title": "Lyrics",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Close screen panel",
+    "title": "Close screen panel",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Previous message",
+    "title": "Previous message",
+    "disabled": true,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Next message",
+    "title": "Next message",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Taste palette",
+    "title": "Taste palette",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "auth",
+    "label": "Turn screen off",
+    "title": "Turn screen off",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "auth",
+    "label": "Player settings",
+    "title": "Player settings",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "auth",
+    "label": "Pause Spotify",
+    "title": "Pause Spotify",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Previous track",
+    "title": "Previous track",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Next track",
+    "title": "Next track",
+    "disabled": false,
+    "pressed": null
+  }
+]
