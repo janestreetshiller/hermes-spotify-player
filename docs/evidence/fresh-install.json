@@ -1,0 +1,20 @@
+{
+  "revision": "93f6e00a9e8123f8a900a7aa08dfc45456e649ab",
+  "pluginSha256": "70793592be3baadc9ed309b78978c92239080982ff7dd3254b6f8d5f942c7504",
+  "isolation": "empty HOME and HERMES_HOME; environment cleared; no Spotify variables",
+  "installer": "official CLI, pinned HTTPS revision, scan left enabled; caution reviewed and interactively accepted",
+  "desktopLink": "verified; installer idempotent",
+  "authStatus": {
+    "loggedIn": false,
+    "clientConfigured": false,
+    "phase": "idle",
+    "redirectUri": "http://127.0.0.1:43827/spotify/callback"
+  },
+  "authValidation": "empty and malformed Client IDs rejected with HTTP 400; no OAuth initiated",
+  "personalCredentialsPresent": false,
+  "personalCurationDatabasePresent": false,
+  "limits": [
+    "No second-person Spotify OAuth approval",
+    "No native-window certification; desktop inspection reported no available windows"
+  ]
+}

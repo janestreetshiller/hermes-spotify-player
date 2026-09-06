@@ -56,15 +56,15 @@ For a new connection, open **Player settings → Spotify connection → Set up y
 
 ## Install
 
-Install the tested 1.3 candidate at this exact revision. The default branch may still contain an earlier version. This requires a Hermes CLI with `plugins install --ref` support. See [installation checks and the remaining confirmation gate](docs/INSTALL-VERIFICATION.md).
+Install the tested 1.3 candidate at this exact revision. The default branch may still contain an earlier version. This requires a Hermes CLI with `plugins install --ref` support. See [fresh-install results and security-scan guidance](docs/INSTALL-VERIFICATION.md).
 
 ```bash
 hermes plugins install janestreetshiller/hermes-spotify-player \
-  --ref 2c23f6529cab8618dbc9c09c69563a6c9e0211cd --enable
+  --ref 93f6e00a9e8123f8a900a7aa08dfc45456e649ab --enable
 "${HERMES_HOME:-$HOME/.hermes}/plugins/spotify-player/scripts/install-desktop.sh"
 ```
 
-Hermes may show a security scan confirmation for local macOS command execution, the localhost OAuth callback, bundled demo code, and media sizes. Review the findings and approve only if you trust this pinned source. A non-interactive install stops when that confirmation is required; do not disable scanning globally.
+The tested fresh install showed a security scan confirmation for local macOS command execution, the localhost OAuth callback, bundled demo code/media, and a CSS comment false-positive. Review the findings and approve only if you trust this pinned source. A non-interactive install stops when that confirmation is required; do not disable scanning globally.
 
 If Spotify Player is already installed, use the same command with `--force` to replace its checkout. Save any local plugin source edits first.
 
@@ -79,7 +79,7 @@ Set `HERMES_HOME` before running the installer for a named/custom profile:
 ```bash
 export HERMES_HOME="$HOME/.hermes/profiles/work"
 hermes plugins install janestreetshiller/hermes-spotify-player \
-  --ref 2c23f6529cab8618dbc9c09c69563a6c9e0211cd --enable
+  --ref 93f6e00a9e8123f8a900a7aa08dfc45456e649ab --enable
 "$HERMES_HOME/plugins/spotify-player/scripts/install-desktop.sh"
 ```
 
