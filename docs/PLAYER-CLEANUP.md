@@ -1,5 +1,9 @@
 # Original player cleanup — September 5, 2026
 
+## Required digital-display rule
+
+Every menu must fit one screen inside its exact padded display bounds: no menu scrolling, clipped controls, or reuse of the frame's physical button chrome inside the digital interface. Use explicit pages for lists, entries, prompts, and long errors. This applies to every current player view/layout; iPod players are subsequent work, not part of this release candidate. Current source-bound checks are in `docs/evidence/menus/results.json`; the notes below retain the earlier verification history.
+
 ## Release scope
 
 Hermes Desktop sidebar plugin only. The existing silver player's proportions, bounded controls and compact layouts are improved; this is not a completed collection of historic player replicas. The user's researched UIs remain the source for future players. The three generic alternatives briefly prototyped during development were rejected and are removed, including their selector and generated media. TERMIN8 work is kept in a separate local repository, not published as a Hermes feature. The newer audio/focus continuation is a local candidate, not a newly published release or final native-window certificate.

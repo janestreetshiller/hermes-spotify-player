@@ -2,11 +2,11 @@
 
 ## In the player
 
-Open **Player settings → Taste palette**. Enter a playlist name and either exact Spotify track URIs or `Artist | Title` lines. **Create private** creates and reads back the new playlist. Named songs require exact case-insensitive title/artist matches; unmatched names prevent creation and return candidates. After creation the draft contains resolved track URIs.
+Open the **Taste palette** side control. **Details** contains the playlist name and brief; **Tracks** edits one exact Spotify URI or `Artist | Title` entry at a time, supports multiline paste, and provides Prev/Next/Add controls. **Actions → Create** creates a private playlist and reads it back. Named songs require exact case-insensitive title/artist matches; unmatched names prevent creation and return candidates. After creation the draft contains resolved track URIs.
 
-**Like tracks / Unlike tracks** updates the URI draft explicitly and reads back every resulting state. **Read taste** fetches a sample of the 20 most recently liked tracks, not the user's entire taste/history. **LLM prompt** produces selectable text from the brief, seeds, and optional sample. It does not secretly send a chat message or automatically modify the account.
+**Actions → Like / Unlike** updates the URI draft explicitly and reads back every resulting state. **Taste** requests a sample of the 20 most recently liked tracks and displays its count, not a claim about the user's entire taste/history. **Prompt** produces copyable text from the entered brief and seeds, without appending the liked-song sample. It does not secretly send a chat message or automatically modify the account.
 
-The form scrolls inside the player screen; it adds no external fixture or permanent height. Settings → Spotify connection opens the existing PKCE connection dialog.
+Every form, result and prompt page fits inside the padded player screen without menu scrolling; flat digital actions never reuse the frame's hardware button finish. Settings → Spotify connection opens the existing PKCE connection dialog.
 
 ## One LLM tool call
 
@@ -44,6 +44,6 @@ The backend needs Spotify PKCE authorization, including library read/modify and 
 
 The new `/curate` route requires a backend reload (quit/reopen Hermes Desktop after saving active work); a JavaScript-only plugin reload does not mount new Python routes. This work did not restart the active app.
 
-Local verification: 25 Python tests, 19 JavaScript tests, browser UI/geometry/lifecycle checks and plugin registration doctor passed. The browser adapter is test-only and explicitly simulated. Live auth was absent (`logged_in=false`; real client returned `SpotifyAuthRequiredError`), so real-account creation and likes remain unverified. No playlist/library mutations were made during development.
+See [release/install verification](INSTALL-VERIFICATION.md) for current evidence. Browser account actions are synthetic fixtures. Completing another person's OAuth approval and creating/liking tracks on that account are not automated release tests; no personal library is copied into the package.
 
 Reference: [Spotify Create Playlist](https://developer.spotify.com/documentation/web-api/reference/create-playlist), [Add Items](https://developer.spotify.com/documentation/web-api/reference/add-items-to-playlist), [Hermes plugin docs](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/).

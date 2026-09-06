@@ -43,6 +43,27 @@
   },
   {
     "mode": "taste",
+    "label": "Taste details",
+    "title": "Taste details",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Taste tracks",
+    "title": "Taste tracks",
+    "disabled": false,
+    "pressed": "false"
+  },
+  {
+    "mode": "taste",
+    "label": "Taste actions",
+    "title": "Taste actions",
+    "disabled": false,
+    "pressed": "true"
+  },
+  {
+    "mode": "taste",
     "label": "Create private playlist",
     "title": "Create private playlist",
     "disabled": false,
@@ -437,6 +458,20 @@
     "mode": "auth",
     "label": "Close screen panel",
     "title": "Close screen panel",
+    "disabled": false,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Previous message",
+    "title": "Previous message",
+    "disabled": true,
+    "pressed": null
+  },
+  {
+    "mode": "auth",
+    "label": "Next message",
+    "title": "Next message",
     "disabled": false,
     "pressed": null
   },

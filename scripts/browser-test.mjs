@@ -131,14 +131,15 @@ try{
  const painted=()=>page.locator('.spotify-visualizer canvas').evaluate(c=>c.toDataURL())
  const still=await painted();await page.waitForTimeout(300)
  assert.equal(await painted(),still,'no ambient activity without a source')
- assert.equal(await page.evaluate(()=>window.demoCalls.filter(c=>c.action==='/visualizer/start').length),0,'opening the view must not capture audio')
+ assert.ok(await page.evaluate(()=>window.demoCalls.some(c=>c.action==='/visualizer/start')),'selecting Visual starts analysis without a second enable step')
  // Deliberately synthetic test data. Production never fabricates a source.
  await page.evaluate(()=>{
   window.demoScenario['/visualizer/start']={delay:0,response:{state:'starting',lease:'fixture-spectrum'}}
   window.demoScenario['/visualizer/frame?lease=fixture-spectrum']={delay:0,response:{state:'streaming',sequence:1,bands:Array.from({length:32},(_,i)=>i<20?.65:0),wave:Array.from({length:64},(_,i)=>Math.sin(i/4)*.3),rms:.2}}
   window.demoScenario['/visualizer/stop']={delay:0,response:{state:'off'}}
  })
- await page.getByRole('button',{name:'Enable Spotify audio analysis',exact:true}).click()
+ await page.getByRole('tab',{name:'Artwork',exact:true}).click()
+ await page.getByRole('tab',{name:'Visualizer',exact:true}).click()
  await page.locator('[data-audio-state=streaming]').waitFor()
  assert.notEqual(await painted(),still,'actual supplied FFT frame drives the pixels')
  const fixedFrame=await painted();await page.waitForTimeout(250)
@@ -156,10 +157,13 @@ try{
  await page.getByRole('button',{name:'Player settings',exact:true}).click()
  await page.getByRole('button',{name:'Taste palette',exact:true}).click()
  await page.getByRole('textbox',{name:'Playlist name',exact:true}).fill('Browser mix')
+ await page.getByRole('button',{name:'Taste tracks',exact:true}).click()
  await page.getByRole('textbox',{name:'Playlist tracks',exact:true}).fill('spotify:track:aaaaaaaaaaaaaaaaaaaaaa')
+ await page.getByRole('button',{name:'Taste actions',exact:true}).click()
  await page.getByRole('button',{name:'Create private playlist',exact:true}).click()
  await page.getByText('Verified · 1 track saved', {exact:true}).waitFor()
  assert.equal(await page.getByRole('link',{name:'Open playlist',exact:true}).getAttribute('href'),'https://open.spotify.com/playlist/bbbbbbbbbbbbbbbbbbbbbb')
+ await page.getByRole('button',{name:'Back to taste',exact:true}).click()
  await page.getByRole('button',{name:'Like draft tracks',exact:true}).click()
  await page.getByText('Verified · 1 liked state updated',{exact:true}).waitFor()
  await page.locator('.product').screenshot({path:'docs/media/player-taste-palette.png'})

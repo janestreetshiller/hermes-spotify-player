@@ -6,13 +6,13 @@ A native Spotify side pocket for [Hermes Desktop](https://hermes-agent.nousresea
 
 *Product UI rendered from this candidate with demo tracks and generated artwork.*
 
-[Interactive demo](https://janestreetshiller.github.io/hermes-spotify-player/demo/) · [Demo video](docs/media/player-1.3-demo.mp4) · [Verification](docs/VERIFICATION.md) · [Social copy](docs/SOCIAL.md)
+[Interactive demo](https://janestreetshiller.github.io/hermes-spotify-player/demo/) · [Release/install verification](docs/INSTALL-VERIFICATION.md) · [Privacy](PRIVACY.md)
 
 It keeps playback inside the desktop workflow without embedding Spotify's Widevine-protected web player. Hermes controls the signed-in Spotify macOS app locally, while its scoped backend uses Hermes' existing Spotify PKCE connection for catalog and library actions.
 
-## 1.3 candidate status
+## 1.3 release candidate
 
-This working tree contains a release candidate, not a completed native-window acceptance or historic-player collection. The published demo/release may represent an earlier build. See [candidate scope and verification limits](docs/PLAYER-CLEANUP.md). The separate TERMIN8 prototype is not part of this public plugin.
+This release candidate contains the current player layouts and single-screen digital menus. Automated tests use the production renderer with explicitly synthetic account data; they do not certify another person's OAuth approval or macOS permission dialogs. See [verification and install boundaries](docs/INSTALL-VERIFICATION.md). iPod players, Spotify DNA integration, and the separate TERMIN8 prototype are not included.
 
 ## Features
 
@@ -28,7 +28,8 @@ This working tree contains a release candidate, not a completed native-window ac
 - Search and play tracks inside the screen or from the command palette
 - Like/unlike the current track, with automatic liked-state lookup and distinct loading/disconnected indicators
 - Add a track to a playlist; the picker pins the displayed song so playback changes cannot silently replace the selection
-- **Taste palette** side control: private playlist creation, batch like/unlike, recent-liked taste sample, and an editable LLM prompt
+- **Taste palette** side control: private playlist creation, batch like/unlike, recent-liked sample count, and a copyable prompt from your brief/seeds
+- Every menu occupies one padded display screen: explicit pages replace scrolling; flat text controls inside the display never reuse physical frame-button chrome
 - `spotify_player_curate`: single-call creation from exact song names or track URIs, verified reads after writes, and retry protection ([usage](docs/CURATION.md))
 - Synced lyrics when LRCLIB has a match
 - Compact status-bar controller when the pane is closed
@@ -40,12 +41,18 @@ This working tree contains a release candidate, not a completed native-window ac
 - Hermes Agent **0.21.x** with Hermes Desktop and the documented `useQuery`/`queryClient` plugin SDK exports; tested against `f159e581c7`
 - Spotify **1.2.98.301** tested on macOS 27 ARM64 (matches Homebrew metadata at verification)
 - Spotify for macOS, signed in
-- A Spotify developer Client ID for search, likes, and playlists (the in-app PKCE setup walks through this)
+- **Your own** Spotify developer Client ID and Spotify account for search, likes, and playlists (the in-app PKCE setup walks through this); Spotify's current developer-app/account restrictions apply
 - Optional audio visualizers: macOS 13+, Xcode Command Line Tools to compile the local helper, and macOS Screen & System Audio Recording permission. Ordinary controls do not require audio capture or its compiler.
 
 The silver design space is 320×280. Its shell scales with content width while settings/metadata keep a 10px logical font floor; mini mode reserves at least 70px height. Reference application layouts expand up to 720px and reveal independent playlist-target panels at 480px where applicable. Narrow layouts retain the same actions without squeezing three columns together. Fixtures cover 234px and wider hosts; geometric/typographic checks do not replace native or reference-fidelity acceptance.
 
 Playback control is local through Spotify's macOS automation interface. Search, library, and playlist actions use Spotify's official Web API through Hermes' built-in Spotify client.
+
+## Your Spotify account, not the author's
+
+No Spotify Client ID, token, password, client secret, account profile, or curation database is bundled. Native transport controls whichever account **you** have signed into in Spotify for macOS. Web API actions use **your active Hermes profile's** OAuth connection.
+
+For a new connection, open **Player settings → Spotify connection → Set up your Spotify app**, create a Web API app in [your Spotify developer dashboard](https://developer.spotify.com/dashboard), and register `http://127.0.0.1:43827/spotify/callback` exactly. Return to the player, paste your app's **Client ID** (not its secret), then select **Connect Spotify** and authorize your own account in Spotify's browser page. Match that account to the one in the Spotify desktop app. Do not copy the author's or another user's `auth.json`, `.env`, or profile directory. An existing profile connection is reused, never replaced on install.
 
 ## Install
 

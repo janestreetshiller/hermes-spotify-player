@@ -1027,10 +1027,13 @@ const PLAYER_CSS = `
 .spotify-panel :focus-visible{outline:2px solid #70d5ff;outline-offset:-2px}
 .spotify-panel.spotify-playlist-host{overflow:hidden;display:flex}.spotify-playlist-host .spotify-panel-close{position:absolute;right:3px;top:3px;float:none}
 .spotify-panel>.spotify-playlist-panel{display:flex;flex:1;flex-direction:column;gap:3px;min-height:0;overflow:hidden}.spotify-playlist-panel header{padding:0 20px 0 0;flex-shrink:0}
-.spotify-panel .spotify-playlist-track{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px;line-height:12px;flex-shrink:0}
+.spotify-panel .spotify-playlist-track{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;line-height:14px;flex-shrink:0}
 .spotify-playlist-panel>input{height:20px;padding:2px 4px;flex-shrink:0;font-size:10px}.spotify-playlist-panel .spotify-playlist-rows{min-height:28px;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:0;scrollbar-width:thin}
 .spotify-playlist-error{flex:1;min-height:0;overflow:auto}
-.spotify-playlist-rows button{display:block;margin:1px 0;background:#17466933;border:1px solid #81bfe522}.spotify-panel .spotify-playlist-rows button span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spotify-panel .spotify-playlist-rows button{display:flex;align-items:center;gap:6px;margin:0;min-height:30px;padding:5px 4px;border:0;border-bottom:1px solid #81bfe533;border-radius:0;background:transparent;box-shadow:none}
+.spotify-playlist-rows button::before{display:none}.spotify-panel .spotify-playlist-rows button:hover:not(:disabled){background:#174669}
+.spotify-panel .spotify-playlist-rows button span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.spotify-playlist-name{flex:1;text-align:left}.spotify-panel .spotify-playlist-rows .spotify-playlist-add{flex:none;width:16px;text-align:center;font-size:16px;line-height:18px}
+.spotify-playlist-panel>input::placeholder{color:#45606c;opacity:1}
 .spotify-taste button{width:auto;height:auto;white-space:normal;overflow-wrap:anywhere;line-height:1.35}
 /* Bounded rims: painted geometry stays within the actual SVG inner frame. */
 .spotify-surface .spotify-view-tabs button{border-width:1px;box-shadow:inset 0 1px #fff,inset 0 -1px #56788a,0 0 0 2px #ecf6f8,0 0 0 3px #79939f}
@@ -1112,8 +1115,6 @@ const PLAYER_CSS = `
 .spotify-surface.spotify-quicktime button.qt-main-play{width:30px;min-width:30px;height:30px;min-height:30px;color:#343a40;border:1px solid #858b8f;background:radial-gradient(ellipse at 38% 15%,#f4f5f5,#c2c7ca 65%,#969da2);box-shadow:inset 0 1px #fff,0 1px 2px #73797d}
 .spotify-quicktime .spotify-range{min-width:0;width:100%;height:12px;margin:0;accent-color:#7b858c}
 .qt-compact-copy{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 5px;font:10px/16px Tahoma,sans-serif}
-.spotify-quicktime .spotify-panel button:not(.spotify-panel-close){width:100%;height:auto;min-height:25px;border-radius:4px;background:#123951;color:var(--lyric);box-shadow:none}
-.spotify-quicktime .spotify-panel .spotify-panel-close{width:20px;min-width:20px;height:20px;min-height:20px;border-radius:3px;color:var(--lyric);background:#123951;box-shadow:none}
 .spotify-quicktime .spotify-audio-prompt button,.spotify-quicktime .spotify-audio-status button{width:auto;min-width:0;border-radius:3px;color:#d9f3ff;background:#123451;box-shadow:none}
 /* Window/deck structure: all children use the same controller and display. */
 .qt-titlebar,.qt-tools,.qt-scrub,.qt-bottom,.qt-compact-copy{grid-column:1/-1}
@@ -1200,9 +1201,6 @@ const PLAYER_CSS = `
 .reference-current-grid article>strong,.reference-current-grid article>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .reference-current-grid p{grid-column:1/-1;margin:0;font-size:10px}
 .reference-current-art{display:flex;height:90px;border:1px solid #a7bed3;background:#d0dfec;border-radius:2px;overflow:hidden}
-.spotify-reference-wmp-library .spotify-search-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;background:#eaf3fb}
-.spotify-surface.spotify-reference-wmp-library .spotify-search-results button{display:flex;flex-direction:column;min-height:100px;background:#eaf3fb;color:#35506a;border:1px solid #a7bed3}
-.spotify-reference-wmp-library .spotify-search-results img{width:64px;height:64px;object-fit:contain}
 .spotify-quicktime .spotify-settings legend{font-size:10px;line-height:11px}
 .spotify-quicktime .spotify-panel .spotify-playlist-track{font-size:10px;line-height:12px}
 /* Keep physical type readable inside the scaled silver shell. Compact text
@@ -1223,6 +1221,34 @@ const PLAYER_CSS = `
 .spotify-surface[data-style=silver] .spotify-mini-lcd :is(.spotify-meta,.spotify-time){line-height:calc(11px / var(--player-scale))}
 .spotify-surface[data-style=silver][data-screen=mini] .spotify-transport{top:max(38px,calc(32px / var(--player-scale)))}
 .spotify-surface[data-style=silver] .spotify-panel :is(input,button,p,span,h2){font-size:max(10px,calc(10px / var(--player-scale)))}
+/* Required boundary: digital menus never inherit the physical frame finish. */
+.spotify-surface{--menu-unit:1px}.spotify-surface[data-style=silver]{--menu-unit:calc(1px / var(--player-scale))}
+.spotify-surface :is(.spotify-screen,.reference-playlist-side) button{background:transparent!important;background-image:none!important;box-shadow:none!important;border:0!important;border-radius:0!important;color:var(--lyric)!important;filter:none!important;transform:none!important;text-shadow:none!important;transition:none!important;font-family:Tahoma,sans-serif}
+.spotify-surface :is(.spotify-screen,.reference-playlist-side) button::before,.spotify-surface :is(.spotify-screen,.reference-playlist-side) button::after{content:none!important;display:none!important}
+.spotify-surface :is(.spotify-screen,.reference-playlist-side) button:hover:not(:disabled){text-decoration:underline;text-underline-offset:3px}
+.spotify-surface :is(.spotify-screen,.reference-playlist-side) button:focus-visible{outline:1px solid currentColor;outline-offset:-1px}
+.spotify-surface :is(.spotify-screen,.reference-playlist-side) button[aria-pressed=true]{text-decoration:underline;text-underline-offset:3px;font-weight:bold}
+.spotify-surface :is(.spotify-taste,.spotify-panel){box-sizing:border-box;overflow:hidden;padding:calc(4 * var(--menu-unit));font:calc(10 * var(--menu-unit))/1.3 Tahoma,sans-serif;gap:calc(3 * var(--menu-unit));display:flex;flex-direction:column;background:var(--glass);color:var(--lyric)}
+.spotify-surface :is(.spotify-taste,.spotify-panel) :is(input,button,p,span,h2,strong){font-size:calc(10 * var(--menu-unit));line-height:1.3}
+.spotify-surface :is(.spotify-taste,.spotify-panel) input{height:calc(20 * var(--menu-unit));min-height:0;flex-shrink:0;border:1px solid #829cab;border-radius:0;background:#0d252c;color:var(--lyric);padding:2px 3px}
+.spotify-surface :is(.spotify-taste,.spotify-panel) input::placeholder{color:inherit;opacity:.8}
+.spotify-surface :is(.spotify-taste,.spotify-panel) button{height:calc(18 * var(--menu-unit));min-height:calc(18 * var(--menu-unit));padding:0 2px;white-space:nowrap;flex-shrink:0;text-align:left;width:auto}
+.spotify-surface :is(.spotify-taste,.spotify-panel) p{margin:0;overflow-wrap:anywhere}
+.spotify-taste-nav,.spotify-menu-pager{display:flex;align-items:center;justify-content:space-between;gap:4px;flex-shrink:0}
+.spotify-taste-nav button{flex:0 0 auto}.spotify-surface .spotify-menu-body{display:flex;flex-direction:column;gap:calc(4 * var(--menu-unit));min-height:0;flex:1;padding:0;overflow:hidden}
+.spotify-surface .spotify-menu-message{display:flex;flex-direction:column;gap:2px;min-height:0;overflow:hidden}
+.spotify-surface .spotify-panel .spotify-panel-close{position:absolute;right:3px;top:3px;width:calc(20 * var(--menu-unit));height:calc(18 * var(--menu-unit));min-height:0;float:none}
+.spotify-surface .spotify-panel header{padding:0 calc(20 * var(--menu-unit)) 0 0;flex-shrink:0}
+.spotify-surface .spotify-playlist-panel{gap:calc(3 * var(--menu-unit))}
+.spotify-surface .spotify-playlist-panel .spotify-playlist-rows{min-height:0;overflow:hidden;flex:1;display:flex;flex-direction:column}
+.spotify-surface .spotify-playlist-rows button{height:calc(22 * var(--menu-unit));min-height:calc(22 * var(--menu-unit));margin:0;padding:0;flex-shrink:0;width:100%}
+.spotify-surface .spotify-playlist-track{font-size:calc(10 * var(--menu-unit));line-height:1.3}
+.spotify-surface .spotify-search-results{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden;gap:2px}
+.spotify-surface .spotify-search-results button{height:calc(30 * var(--menu-unit));min-height:calc(30 * var(--menu-unit));width:100%;white-space:normal;padding:0}
+.spotify-surface .spotify-search-results span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spotify-surface .spotify-menu-pager button{width:auto;min-width:0}.spotify-menu-pager span{white-space:nowrap}
+.spotify-surface .spotify-taste>button,.spotify-surface .spotify-menu-body>button{flex:0 0 auto}
+.spotify-surface .spotify-playlist-error{overflow:hidden}
 `
 
 function FactoryLoader({ label = 'Loading Spotify' }) {
@@ -1283,7 +1309,41 @@ function MetalArtifact({ enabled, visible, playing }) {
     'data-artifact': 'metal-fx@1.0.4', children: jsx('canvas', { ref }) }) : null
 }
 
+// Digital menus page their content; hardware styling never enters the display.
+function useMenuRows(rowHeight) {
+  const ref=useRef(null),[size,setSize]=useState(1)
+  useEffect(()=>{
+    const node=ref.current;if(!node)return undefined
+    const update=()=>{const surface=node.closest('.spotify-surface'),scale=surface?.dataset.style==='silver'?Number(getComputedStyle(surface).getPropertyValue('--player-scale'))||1:1;setSize(Math.max(1,Math.floor(node.clientHeight*scale/rowHeight)))}
+    const observer=new ResizeObserver(update);observer.observe(node);update();return ()=>observer.disconnect()
+  })
+  return [ref,size]
+}
+function MenuPager({page,pages,onChange,label,extra=null}) {
+  return pages>1||extra?jsxs('nav',{className:'spotify-menu-pager','aria-label':label+' pages',children:[
+    jsx('button',{type:'button',title:'Previous '+label,'aria-label':'Previous '+label,disabled:page===0,onClick:()=>onChange(page-1),children:'Prev'}),
+    jsx('span',{'aria-live':'polite',children:`${page+1} / ${pages}`}),
+    jsx('button',{type:'button',title:'Next '+label,'aria-label':'Next '+label,disabled:page>=pages-1,onClick:()=>onChange(page+1),children:'Next'}),extra
+  ]}):null
+}
+function MenuMessage({text,role='status'}) {
+  const [page,setPage]=useState(0)
+  const parts=[]
+  let remaining=String(text||'')
+  while(remaining.length>40){let end=remaining.lastIndexOf(' ',40);if(end<16)end=40;parts.push(remaining.slice(0,end));remaining=remaining.slice(end).trimStart()}
+  parts.push(remaining)
+  useEffect(()=>setPage(0),[text])
+  return jsxs('div',{className:'spotify-menu-message',children:[jsx('p',{role,children:parts[Math.min(page,parts.length-1)]}),jsx(MenuPager,{page:Math.min(page,parts.length-1),pages:parts.length,onChange:setPage,label:'message'})]})
+}
+function MenuTrackEditor({draft,onChange,disabled}) {
+  const [page,setPage]=useState(0),lines=draft.split(/\r?\n/),index=Math.min(page,lines.length-1)
+  return jsxs('div',{className:'spotify-menu-body',children:[
+    jsx('input',{'aria-label':'Playlist tracks',title:'One Spotify URI or Artist | Title per entry',value:lines[index],disabled,placeholder:'Artist | Title',onChange:e=>{const next=[...lines];next[index]=e.target.value;onChange(next.join('\n'))},onPaste:e=>{const text=e.clipboardData.getData('text');if(/[\r\n]/.test(text)){e.preventDefault();const next=[...lines];next.splice(index,1,...text.split(/\r?\n/));onChange(next.join('\n'))}}}),
+    jsx(MenuPager,{page:index,pages:lines.length,onChange:setPage,label:'tracks',extra:jsx('button',{type:'button',title:'Add another track','aria-label':'Add another track',disabled,onClick:()=>{onChange(draft+'\n');setPage(lines.length)},children:'Add'})})
+  ]})
+}
 function TastePalette({track}) {
+  const [section,setSection]=useState('details')
   const [name,setName]=useState('My taste palette')
   const [brief,setBrief]=useState('')
   const [draft,setDraft]=useState(track.spotifyUrl || '')
@@ -1291,7 +1351,6 @@ function TastePalette({track}) {
   const [notice,setNotice]=useState('Private by default. One URI or Artist | Title per line.')
   const [result,setResult]=useState(null)
   const [prompt,setPrompt]=useState('')
-  const [taste,setTaste]=useState([])
   const request=useRef(null)
   const lock=useRef(false)
   const parse=()=>{
@@ -1304,7 +1363,7 @@ function TastePalette({track}) {
   }
   const act=async(action,saved)=>{
     if(lock.current)return
-    lock.current=true;setBusy(true);setNotice('Checking Spotify…')
+    lock.current=true;setBusy(true);setSection('result');setNotice('Checking Spotify…')
     try{
       if(!pluginRest)throw new Error('Spotify backend is unavailable.')
       let body={action}
@@ -1331,23 +1390,26 @@ function TastePalette({track}) {
         $libraryRevision.set($libraryRevision.get()+1)
         setNotice(`Verified · ${response.trackCount} liked state${response.trackCount===1?'':'s'} updated`)
       }else{
-        setTaste(response.tracks);setNotice(`Taste sample · ${response.sampleCount} recent liked songs`)
+        setNotice(`Taste sample · ${response.sampleCount} recent liked songs`)
       }
     }catch(error){setNotice(error instanceof Error?error.message:'Curation failed.')}
     finally{lock.current=false;setBusy(false)}
   }
-  const makePrompt=()=>setPrompt(`Curate a private Spotify playlist named ${JSON.stringify(name)}. Taste brief: ${brief || 'Use the seed tracks below'}. Seeds: ${draft}. Recent liked-song sample: ${JSON.stringify(taste)}. Choose up to 20 songs and call spotify_player_curate once with action=create, name, public=false, a new requestId, and songs=[{title,artist}]. Do not invent Spotify IDs. Report the verified playlist URL; if resolution fails, show the unmatched songs without substituting them. Do not update Liked Songs unless I ask.`)
+  const makePrompt=()=>setPrompt(`Curate a private Spotify playlist named ${JSON.stringify(name)}. Taste brief: ${brief || 'Use the seed tracks below'}. Seeds: ${draft}. Choose up to 20 songs and call spotify_player_curate once with action=create, name, public=false, a new requestId, and songs=[{title,artist}]. Do not invent Spotify IDs. Report the verified playlist URL; if resolution fails, show the unmatched songs without substituting them. Do not update Liked Songs unless I ask.`)
   const field=(label,value,change,extra={})=>jsx('input',{'aria-label':label,placeholder:label,value,onChange:e=>change(e.target.value),disabled:busy,...extra})
   const button=(label,click,caption=label)=>jsx(Tip,{label,children:jsx('button',{'aria-label':label,type:'button',disabled:busy,'aria-busy':busy,onClick:click,children:caption})})
   return jsxs('section',{className:'spotify-taste','aria-label':'Taste palette',children:[
     jsx('strong',{children:'Taste palette'}),
-    field('Playlist name',name,setName,{maxLength:100}),
-    field('Taste brief',brief,setBrief,{maxLength:300}),
-    jsx('textarea',{'aria-label':prompt?'Curation prompt':'Playlist tracks',value:prompt||draft,readOnly:!!prompt,disabled:busy,placeholder:'Artist | Title, one per line',onChange:e=>setDraft(e.target.value),onFocus:e=>{if(prompt)e.target.select()}}),
-    jsxs('div',{className:'spotify-taste-actions',children:prompt?[button('Back to tracks',()=>setPrompt('')),button('Select prompt',()=>{const node=document.querySelector('.spotify-taste textarea');node?.focus();node?.select()})]:[button('Create private playlist',()=>void act('create'),'Create private'),button('LLM prompt',makePrompt)]}),
-    !prompt?jsxs('div',{className:'spotify-taste-actions',children:[button('Like draft tracks',()=>void act('set-liked',true),'Like tracks'),button('Remove draft likes',()=>void act('set-liked',false),'Unlike tracks'),button('Read taste',()=>void act('taste'))]}):null,
-    jsx('p',{role:'status','aria-live':'polite',children:notice}),
-    result?.url?jsx('a',{href:result.url,target:'_blank',rel:'noopener noreferrer',onClick:e=>{e.preventDefault();void openExternal(result.url)},children:result.verified?'Open playlist':'Inspect partial playlist'}):null
+    ['prompt','result'].includes(section)?jsxs('nav',{className:'spotify-taste-nav',children:[button('Back to taste',()=>setSection('actions'),'Back'),section==='prompt'?button('Copy prompt',async()=>{setSection('result');try{await navigator.clipboard.writeText(prompt);setNotice('Prompt copied.')}catch{setNotice('Clipboard unavailable.')}},'Copy'):result?.url?jsx('a',{href:result.url,target:'_blank',rel:'noopener noreferrer',onClick:e=>{e.preventDefault();void openExternal(result.url)},children:result.verified?'Open playlist':'Inspect playlist'}):null]}):jsx('nav',{className:'spotify-taste-nav','aria-label':'Taste sections',children:['details','tracks','actions'].map(value=>jsx('button',{type:'button',title:'Taste '+value,'aria-label':'Taste '+value,'aria-pressed':section===value,onClick:()=>setSection(value),children:value[0].toUpperCase()+value.slice(1)},value))}),
+    section==='details'?jsxs('div',{className:'spotify-menu-body',children:[field('Playlist name',name,setName,{maxLength:100}),field('Taste brief',brief,setBrief,{maxLength:300}),jsx('p',{children:'Private by default'})]}):
+    section==='tracks'?jsx('div',{className:'spotify-menu-body',children:jsx(MenuTrackEditor,{draft,onChange:setDraft,disabled:busy})}):
+    section==='result'?jsx(MenuMessage,{text:notice}):
+    section==='prompt'?jsx(MenuMessage,{text:prompt}):
+    jsxs('div',{className:'spotify-menu-body',children:[
+      jsxs('div',{className:'spotify-taste-actions',children:[button('Create private playlist',()=>void act('create'),'Create'),button('LLM prompt',()=>{makePrompt();setSection('prompt')},'Prompt')]}),
+      jsxs('div',{className:'spotify-taste-actions',children:[button('Like draft tracks',()=>void act('set-liked',true),'Like'),button('Remove draft likes',()=>void act('set-liked',false),'Unlike'),button('Read taste',()=>void act('taste'),'Taste')]}),
+      jsx('p',{children:'Private by default'})
+    ]}),
   ]})
 }
 
@@ -1398,9 +1460,9 @@ function drawAudioFrame(ctx, w, h, style, frame) {
   ctx.shadowBlur=0;ctx.globalAlpha=1
 }
 
-function XPVisualizer({playing, visible, style = 'spectrum'}) {
+function XPVisualizer({playing, visible, enabled, style = 'spectrum'}) {
   const ref=useRef(null), frameRef=useRef(null), drawRef=useRef(()=>{})
-  const [enabled,setEnabled]=useState(false), [retry,setRetry]=useState(0)
+  const [retry,setRetry]=useState(0)
   const [frame,setFrame]=useState({state:'off'})
   const reduced=useReducedMotion()
   frameRef.current=frame
@@ -1444,16 +1506,15 @@ function XPVisualizer({playing, visible, style = 'spectrum'}) {
     return ()=>{observer.disconnect();drawRef.current=()=>{}}
   },[style])
   useEffect(()=>{drawRef.current()},[frame])
-  const live=['streaming','silent'].includes(frame.state)
-  const message=reduced?'Reduced motion is enabled.':!playing?'Play Spotify to enable sound analysis.':frame.message||'Analyze Spotify app audio. No microphone or recordings.'
+  const failed=['error','permission-required','unavailable'].includes(frame.state)
+  const message=reduced?'Reduced motion is enabled.':!playing?'Play Spotify to see the visualization.':!enabled?'Select Visual to start.':failed?frame.message||'Visualization unavailable.':frame.state==='off'?'Visualization disconnected.':null
+  const canRetry=enabled&&playing&&!reduced&&(failed||frame.state==='off')
   return jsxs('div',{className:'spotify-visualizer','aria-label':'Spotify audio visualizer','data-audio-state':frame.state,children:[
     jsx('canvas',{ref,'aria-hidden':true}),
-    live?jsxs('div',{className:'spotify-audio-status',children:[jsx('span',{children:frame.state==='silent'?'NO AUDIO':'SPOTIFY AUDIO'}),jsx('button',{type:'button','aria-label':'Stop audio analysis',title:'Stop audio analysis',onClick:()=>setEnabled(false),children:'Stop'})]}):
-    jsxs('div',{className:'spotify-audio-prompt',children:[
-      jsx('strong',{children:frame.state==='starting'?'Starting audio…':'Sound visualizer'}),
+    message?jsxs('div',{className:'spotify-audio-prompt',children:[
       jsx('p',{role:'status',children:message}),
-      jsx('button',{type:'button',disabled:!playing||reduced||frame.state==='starting','aria-label':'Enable Spotify audio analysis',title:'Enable Spotify audio analysis',onClick:()=>{setEnabled(true);setRetry(x=>x+1)},children:frame.state==='off'?'Enable audio':'Retry audio'})
-    ]})
+      canRetry?jsx('button',{type:'button','aria-label':'Retry visualization',title:'Retry visualization',onClick:()=>setRetry(x=>x+1),children:'Retry'}):null
+    ]}):null
   ]})
 }
 
@@ -1709,7 +1770,9 @@ function NativePlayer() {
     pluginStorage?.set('playerPreferences', next)
     return next
   })
-  const setActiveExpandedView = view => { closePanel(); updatePreferences({view}) }
+  // Selecting Visual is the session-local opt-in; a restored view never starts capture on load.
+  const [visualizerRequested,setVisualizerRequested] = useState(false)
+  const setActiveExpandedView = view => { if(view==='visualizer')setVisualizerRequested(true); closePanel(); updatePreferences({view}) }
   // Material feedback is standard; motion still respects visibility and OS preferences.
   const [lyrics, setLyrics] = useState('')
   const [syncedLyrics, setSyncedLyrics] = useState('')
@@ -1925,7 +1988,7 @@ function NativePlayer() {
   })
   const lyricsMessage = !player.title || !player.artist ? 'Play a track to see lyrics.' : lyricsState === 'instrumental' ? 'This track is instrumental.' : lyricsState === 'missing' ? 'Lyrics are not available for this track.' : lyrics
   const screenContent = activeExpandedView === 'curate' ? jsx(TastePalette,{track:player}) : activeExpandedView === 'visualizer'
-    ? jsx(XPVisualizer, {playing:isPlaying, visible, style: preferences.visualizer})
+    ? jsx(XPVisualizer, {playing:isPlaying, visible, enabled:visualizerRequested, style: preferences.visualizer})
     : activeExpandedView === 'artwork'
     ? player.artworkUrl
       ? jsx('img', { className: 'spotify-artwork', alt: player.album ? `${player.album} cover` : 'Album cover', src: player.artworkUrl })
@@ -2002,7 +2065,7 @@ function NativePlayer() {
           ]}),
         jsxs('div', { className: 'spotify-display', children: [
           jsx('div', { className: 'spotify-screen', children: displayContent }),
-          jsx('div', { className: 'spotify-lcd', children: trackCopy })
+          panel || activeExpandedView === 'curate' ? null : jsx('div', { className: 'spotify-lcd', children: trackCopy })
         ] }),
         jsxs('div', { className: 'spotify-side-controls', children: [tasteButton, screenButton, settingsButton] })
       ] }) : miniMode ? jsxs('div', {className:'spotify-mini',children:[
@@ -2051,7 +2114,10 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false, au
   const [reload, setReload] = useState(0)
   useEffect(() => { if(open)setSelectedTrack(track) }, [open])
   const [playlists, setPlaylists] = useState([])
+  const [playlistPage,setPlaylistPage]=useState(0)
   const [playlistQuery, setPlaylistQuery] = useState('')
+  useEffect(()=>setPlaylistPage(0),[playlistQuery,playlists])
+  const [playlistRows,playlistPageSize]=useMenuRows(22)
   const [loading, setLoading] = useState(false)
   const [addingId, setAddingId] = useState('')
   const [error, setError] = useState('')
@@ -2100,17 +2166,19 @@ function SpotifyPlaylistDialog({ open, onOpenChange, track, embedded = false, au
     ? playlists.filter(playlist => playlist.name.toLocaleLowerCase().includes(normalizedQuery))
     : playlists
 
-  if(embedded)return jsx(ScreenPanel,{open,onOpenChange,className:'spotify-playlist-host',children:
+  const playlistPages=Math.max(1,Math.ceil(visiblePlaylists.length/playlistPageSize)),currentPage=Math.min(playlistPage,playlistPages-1)
+  if(embedded)return jsx(ScreenPanel,{open,onOpenChange,autoFocus,className:'spotify-playlist-host',children:
     jsxs('div',{className:'spotify-playlist-panel',children:[
       jsx('header',{children:jsx('h2',{children:'Add to playlist'})}),
-      jsx('p',{className:'spotify-playlist-track',title:`${selectedTrack.title} — ${selectedTrack.artist||'Spotify'}`,children:selectedTrack.title||'Choose a playlist'}),
-      playlists.length>5?jsx('input',{'aria-label':'Filter playlists',placeholder:'Filter playlists…',value:playlistQuery,onChange:event=>setPlaylistQuery(event.target.value)}):null,
+      !error?jsx('p',{className:'spotify-playlist-track',title:`${selectedTrack.title} — ${selectedTrack.artist||'Spotify'}`,children:selectedTrack.title?`${selectedTrack.title} — ${selectedTrack.artist||'Spotify'}`:'Choose a playlist'}):null,
+      !error&&playlists.length>5?jsx('input',{'aria-label':'Filter playlists',placeholder:'Filter playlists…',value:playlistQuery,onChange:event=>setPlaylistQuery(event.target.value)}):null,
       loading?jsx('p',{role:'status',children:'Loading playlists…'}):error?null:
-      jsx('div',{className:'spotify-playlist-rows','aria-label':'Available playlists',children:visiblePlaylists.length?visiblePlaylists.map(playlist=>jsx('button',{
+      jsx('div',{ref:playlistRows,className:'spotify-playlist-rows','aria-label':'Available playlists',children:visiblePlaylists.length?visiblePlaylists.slice(currentPage*playlistPageSize,(currentPage+1)*playlistPageSize).map(playlist=>jsxs('button',{
         type:'button',title:playlist.name,'aria-label':`Add to ${playlist.name}`,disabled:!!addingId,onClick:()=>void addToPlaylist(playlist),
-        children:jsx('span',{children:addingId===playlist.id?'Adding…':playlist.name})
+        children:[jsx('span',{className:'spotify-playlist-name',children:playlist.name}),jsx('span',{className:'spotify-playlist-add','aria-hidden':true,children:addingId===playlist.id?'…':'+'})]
       },playlist.id)):jsx('p',{children:playlistQuery?'No matching playlists.':'No playlists found.'})}),
-      error?jsxs('div',{role:'alert',className:'spotify-playlist-error',children:[jsx('p',{children:error}),!addingId?jsx('button',{type:'button',title:'Reload playlists',onClick:()=>setReload(x=>x+1),children:'Reload playlists'}):null]}):null
+      !loading&&!error?jsx(MenuPager,{page:currentPage,pages:playlistPages,onChange:setPlaylistPage,label:'playlists'}):null,
+      error?jsxs('div',{role:'alert',className:'spotify-playlist-error spotify-menu-body',children:[jsx(MenuMessage,{text:error}),!addingId?jsx('button',{type:'button',title:'Reload playlists',onClick:()=>setReload(x=>x+1),children:'Reload playlists'}):null]}):null
     ]})})
 
   return jsx(embedded ? ScreenPanel : Dialog, {
@@ -2215,6 +2283,7 @@ function SpotifyAuthDialog({embedded = false, onClose} = {}) {
     redirectUri: 'http://127.0.0.1:43827/spotify/callback'
   })
   const [clientId, setClientId] = useState('')
+  const [setupHelp,setSetupHelp]=useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -2269,6 +2338,19 @@ function SpotifyAuthDialog({embedded = false, onClose} = {}) {
 
   const waiting = auth.phase === 'waiting' || auth.phase === 'starting'
   const connected = Boolean(auth.loggedIn || auth.phase === 'connected')
+  if(embedded)return jsx(ScreenPanel,{open,onOpenChange:setOpen,children:jsxs('div',{className:'spotify-menu-body',children:[
+    jsx('header',{children:jsx('h2',{children:connected?'Spotify connected':setupHelp?'Spotify app setup':'Connect Spotify'})}),
+    error||auth.phase==='error'?jsxs('div',{className:'spotify-menu-body',children:[jsx(MenuMessage,{text:error||auth.message||'Authorization did not complete.',role:'alert'}),jsx('button',{type:'button',title:'Retry connection status',onClick:()=>void refreshAuth(),children:'Retry'})]}):
+    setupHelp?jsxs('div',{className:'spotify-menu-body',children:[
+      jsx('a',{href:'https://developer.spotify.com/dashboard',target:'_blank',rel:'noreferrer',title:'Open Spotify developer dashboard',children:'Create app · Web API'}),
+      jsx('p',{children:'Redirect URI:'}),jsx('code',{children:auth.redirectUri||'http://127.0.0.1:43827/spotify/callback'}),
+      jsx('button',{type:'button',title:'Back to connection',onClick:()=>setSetupHelp(false),children:'Back'})
+    ]}):connected?jsx(MenuMessage,{text:'Your Spotify account is connected. Search, likes and playlists are ready.'}):waiting?jsx(MenuMessage,{text:'Finish connecting in your browser. Your password stays with Spotify.'}):jsxs('div',{className:'spotify-menu-body',children:[
+      !auth.clientConfigured?jsx('button',{type:'button',title:'Spotify app setup',onClick:()=>setSetupHelp(true),children:'Set up your Spotify app'}):jsx('p',{children:'Approve your account in Spotify.'}),
+      !auth.clientConfigured?jsx('input',{'aria-label':'Spotify Client ID',autoComplete:'off',maxLength:128,disabled:busy,onChange:e=>setClientId(e.target.value),placeholder:'Your Spotify Client ID',value:clientId}):null,
+      jsx('button',{type:'button',title:'Authorize your Spotify account in your browser',disabled:busy||(!auth.clientConfigured&&clientId.trim().length<20),onClick:()=>void connect(),children:'Connect Spotify'})
+    ]})
+  ]})})
 
   return jsx(embedded ? ScreenPanel : Dialog, {
     open,
@@ -2479,6 +2561,9 @@ function SpotifySearchDialog({embedded = false, onClose} = {}) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [hasSearched, setHasSearched] = useState(false)
+  const [searchPage,setSearchPage]=useState(0)
+  const [searchRows,searchPageSize]=useMenuRows(32)
+  useEffect(()=>setSearchPage(0),[results])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -2523,6 +2608,13 @@ function SpotifySearchDialog({embedded = false, onClose} = {}) {
     }
   }
 
+  const searchPages=Math.max(1,Math.ceil(results.length/searchPageSize)),currentSearchPage=Math.min(searchPage,searchPages-1)
+  if(embedded)return jsx(ScreenPanel,{open,onOpenChange:setOpen,children:jsxs('form',{className:'spotify-menu-body',onSubmit:submit,children:[
+    jsx('header',{children:jsx('h2',{children:'Search Spotify'})}),
+    jsx('input',{'aria-label':'Search Spotify',autoFocus:true,disabled:busy,maxLength:200,onChange:e=>setQuery(e.target.value),placeholder:'Search music…',value:query}),
+    error?jsx(MenuMessage,{text:error,role:'alert'}):jsx('div',{ref:searchRows,className:'spotify-search-results',children:results.length?results.slice(currentSearchPage*searchPageSize,(currentSearchPage+1)*searchPageSize).map(result=>jsxs('button',{type:'button',title:`Play ${result.title} by ${result.artist}`,'aria-label':`Play ${result.title} by ${result.artist}`,disabled:busy,onClick:()=>void playResult(result),children:[jsx('span',{children:result.title}),jsx('span',{children:result.artist})]},result.uri)):jsx('p',{role:'status',children:busy?'Searching…':hasSearched?'No tracks found.':'Enter a search, then press Return.'})}),
+    !error?jsx(MenuPager,{page:currentSearchPage,pages:searchPages,onChange:setSearchPage,label:'search results'}):null
+  ]})})
   return jsx(embedded ? ScreenPanel : Dialog, {
     open,
     onOpenChange: setOpen,
