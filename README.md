@@ -49,10 +49,17 @@ Playback control is local through Spotify's macOS automation interface. Search, 
 
 ## Install
 
+Install the tested 1.3 candidate at this exact revision. The default branch may still contain an earlier version. This requires a Hermes CLI with `plugins install --ref` support. See [installation checks and the remaining confirmation gate](docs/INSTALL-VERIFICATION.md).
+
 ```bash
-hermes plugins install janestreetshiller/hermes-spotify-player --enable
-~/.hermes/plugins/spotify-player/scripts/install-desktop.sh
+hermes plugins install janestreetshiller/hermes-spotify-player \
+  --ref 2c23f6529cab8618dbc9c09c69563a6c9e0211cd --enable
+"${HERMES_HOME:-$HOME/.hermes}/plugins/spotify-player/scripts/install-desktop.sh"
 ```
+
+Hermes may show a security scan confirmation for local macOS command execution, the localhost OAuth callback, bundled demo code, and media sizes. Review the findings and approve only if you trust this pinned source. A non-interactive install stops when that confirmation is required; do not disable scanning globally.
+
+If Spotify Player is already installed, use the same command with `--force` to replace its checkout. Save any local plugin source edits first.
 
 Then **quit and reopen Hermes Desktop after saving active work** so its own `hermes serve` backend mounts the newly installed routes. Restarting the messaging gateway alone does not refresh an already-running Desktop backend. Open **Settings → Plugins** and enable **Spotify Player** if its saved desktop toggle is off. Quit and reopen Desktop after updates as well; the reload command may only discover newly installed plugins. The player appears below the Sessions pane. You can move it like any other pane; the screen toggle automatically fits its vertical allocation, and width changes resize the selected layout; the silver shell scales without shrinking settings/metadata below their logical font floor.
 
@@ -63,7 +70,10 @@ Hermes deliberately separates Python gateway plugins from native desktop UI plug
 Set `HERMES_HOME` before running the installer for a named/custom profile:
 
 ```bash
-HERMES_HOME="$HOME/.hermes/profiles/work"   "$HOME/.hermes/plugins/spotify-player/scripts/install-desktop.sh"
+export HERMES_HOME="$HOME/.hermes/profiles/work"
+hermes plugins install janestreetshiller/hermes-spotify-player \
+  --ref 2c23f6529cab8618dbc9c09c69563a6c9e0211cd --enable
+"$HERMES_HOME/plugins/spotify-player/scripts/install-desktop.sh"
 ```
 
 The backend plugin must also be installed and enabled in that profile's Hermes home.
@@ -93,11 +103,11 @@ See [PRIVACY.md](PRIVACY.md) for the exact data flow.
 
 ## Update
 
-```bash
-hermes plugins update spotify-player
-```
+The candidate install above is pinned: `hermes plugins update spotify-player` intentionally will not move it. To install a newer candidate, use its documented full commit SHA with `hermes plugins install … --ref … --force --enable`, then run its desktop installer again. Save local source edits before force-reinstalling.
 
-Reopen Hermes Desktop after Python backend updates. The desktop file is symlinked into the installed repository, so it follows plugin updates automatically. Quit and reopen Desktop if the UI does not hot-reload.
+For an unpinned default-branch installation, use `hermes plugins update spotify-player` instead.
+
+Reopen Hermes Desktop after updates. The desktop file is symlinked into the installed repository, so it follows plugin updates automatically. Quit and reopen Desktop if the UI does not hot-reload.
 
 ## Uninstall
 
