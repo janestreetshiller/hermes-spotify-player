@@ -1,0 +1,17 @@
+{
+  "hashes": {
+    "desktop/plugin.js": "70793592be3baadc9ed309b78978c92239080982ff7dd3254b6f8d5f942c7504",
+    "demo/sdk.jsx": "f2c5cfb79458d3b83233a88f0ffc446e98c7c0ad709e7c7d6977fd882684bc53",
+    "docs/demo/app.js": "09e9aeb7811cfdc0306397f6e3843a3a3b48ec556cec085c0916c5df79135538",
+    "scripts/style-test.mjs": "d922355cb467c0830493b922f197b7aa360734ed8b9ebc877b1809ce2422a479"
+  },
+  "results": [
+    "Distinct rectangular layout selected without playback/account commands; settings focus restored",
+    "Reference layout persisted across reload",
+    "Ten reference layouts: expanded/off/mini containment at 234/340/640px; 30px central transport maintained",
+    "Centered reference transport, ±10s seek and volume use shared fixture controller",
+    "Search/playlist/lyrics remain reachable; Visual starts directly and leaving it stops capture in the new shell (fixtures only)",
+    "Returning to silver restores the separately persisted finish; finishes are not layouts"
+  ],
+  "scope": "synthetic isolated browser; not native or all-reference acceptance"
+}

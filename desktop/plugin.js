@@ -15,8 +15,11 @@ const POLL_MS = 4000
 const FOOTER_ROTATE_MS = 4500
 const $searchOpen = atom(false)
 const $authOpen = atom(false)
+const $playerViewMode = atom('auto')
 let pluginRest = null
 let restControl = null
+
+const SIMPLE_VIEW = 'simple'
 
 async function runNativeSpotify(action = 'status', argument = '') {
   if (!restControl) throw new Error('Spotify plugin backend is not ready.')
@@ -187,8 +190,10 @@ function mergePlayerSnapshot(current, snapshot) {
 
 function nextPlayerDisplayMode(currentMode, measuredHeight) {
   const height = Number(measuredHeight) || 152
-  if (currentMode === 'compact') return height > 112 ? 'default' : 'compact'
+  if (currentMode === SIMPLE_VIEW) return height < 84 ? SIMPLE_VIEW : 'compact'
+  if (currentMode === 'compact') return height < 84 ? SIMPLE_VIEW : height > 112 ? 'default' : 'compact'
   if (currentMode === 'expanded') return height < 244 ? 'default' : 'expanded'
+  if (height < 84) return SIMPLE_VIEW
   if (height < 96) return 'compact'
   if (height > 276) return 'expanded'
   return 'default'
@@ -201,7 +206,9 @@ function NativePlayer() {
   const [playlistOpen, setPlaylistOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [displayMode, setDisplayMode] = useState('default')
+  const [autoDisplayMode, setAutoDisplayMode] = useState('default')
+  const playerViewMode = useValue($playerViewMode)
+  const displayMode = playerViewMode === SIMPLE_VIEW ? SIMPLE_VIEW : autoDisplayMode
   const [activeExpandedView, setActiveExpandedView] = useState('artwork')
   const [lyrics, setLyrics] = useState('')
   const [syncedLyrics, setSyncedLyrics] = useState('')
@@ -252,7 +259,7 @@ function NativePlayer() {
       if (frameId) globalThis.cancelAnimationFrame(frameId)
       frameId = globalThis.requestAnimationFrame(() => {
         frameId = 0
-        setDisplayMode(currentMode => nextPlayerDisplayMode(currentMode, nextHeight))
+        setAutoDisplayMode(currentMode => nextPlayerDisplayMode(currentMode, nextHeight))
       })
     })
     observer.observe(viewport)
@@ -366,6 +373,32 @@ function NativePlayer() {
   const savedAriaLabel = savedReady
     ? saved ? 'Unlike current track' : 'Like current track'
     : savedControlLabel
+
+  if (displayMode === SIMPLE_VIEW) {
+    return jsxs('section', {
+      ref: containerRef,
+      className: 'flex h-full min-h-0 items-center justify-between gap-2 overflow-hidden px-2 py-1',
+      children: [
+        jsx('div', {
+          className: 'min-w-0 flex-1',
+          children: jsx('div', {
+            className: 'truncate text-sm font-medium',
+            title: player.title || '',
+            children: player.title || (player.running ? 'Nothing selected' : 'Open Spotify')
+          })
+        }),
+        jsx(Button, {
+          'aria-label': isPlaying ? 'Pause Spotify' : 'Play Spotify',
+          disabled: busy,
+          onClick: () => void act('playpause'),
+          size: 'icon-sm',
+          type: 'button',
+          children: jsx(isPlaying ? icons.Pause : icons.Play, {})
+        })
+      ]
+    })
+  }
+
   if (displayMode === 'compact') {
     return jsxs('section', {
       ref: containerRef,
@@ -1298,6 +1331,56 @@ export default {
         label: 'Spotify: Search music',
         keywords: ['spotify', 'music', 'song', 'artist', 'album', 'playlist'],
         run: () => $searchOpen.set(true)
+      }
+    })
+
+    ctx.register({
+      id: 'player-mode-auto',
+      area: PALETTE_AREA,
+      data: {
+        id: 'spotify.player.mode.auto',
+        label: 'Spotify: Player view auto',
+        run: () => $playerViewMode.set('auto')
+      }
+    })
+
+    ctx.register({
+      id: 'player-mode-simple',
+      area: PALETTE_AREA,
+      data: {
+        id: 'spotify.player.mode.simple',
+        label: 'Spotify: Player view simple',
+        run: () => $playerViewMode.set(SIMPLE_VIEW)
+      }
+    })
+
+    ctx.register({
+      id: 'player-mode-compact',
+      area: PALETTE_AREA,
+      data: {
+        id: 'spotify.player.mode.compact',
+        label: 'Spotify: Player view compact',
+        run: () => $playerViewMode.set('compact')
+      }
+    })
+
+    ctx.register({
+      id: 'player-mode-default',
+      area: PALETTE_AREA,
+      data: {
+        id: 'spotify.player.mode.default',
+        label: 'Spotify: Player view default',
+        run: () => $playerViewMode.set('default')
+      }
+    })
+
+    ctx.register({
+      id: 'player-mode-expanded',
+      area: PALETTE_AREA,
+      data: {
+        id: 'spotify.player.mode.expanded',
+        label: 'Spotify: Player view expanded',
+        run: () => $playerViewMode.set('expanded')
       }
     })
   }

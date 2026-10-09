@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const url = process.argv[2] || 'http://localhost:8791/';
+const out = process.argv[3] || '/tmp/sp.png';
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+await page.goto(url, { waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+const root = page.locator('#player-pane');
+await root.screenshot({ path: out });
+console.log('shot', out);
+await browser.close();

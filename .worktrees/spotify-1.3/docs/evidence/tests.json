@@ -1,0 +1,13 @@
+{
+  "javascript": {
+    "passed": 19,
+    "failed": 0
+  },
+  "python": {
+    "passed": 19,
+    "status": "OK"
+  },
+  "installer": "macOS temporary-home install/uninstall passed",
+  "npmAudit": "0 vulnerabilities",
+  "pluginDoctor": "runtime discovery, manifest parsing, import and registration passed"
+}
