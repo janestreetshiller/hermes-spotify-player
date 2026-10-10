@@ -17,8 +17,11 @@ from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+try:
+    from hermes_cli.auth import DEFAULT_SPOTIFY_REDIRECT_URI
+except ImportError:
+    from hermes_cli.auth_constants import DEFAULT_SPOTIFY_REDIRECT_URI
 from hermes_cli.auth import (
-    DEFAULT_SPOTIFY_REDIRECT_URI,
     get_spotify_auth_status,
     login_spotify_command,
 )
