@@ -3,3 +3,17 @@ __pycache__/
 .DS_Store
 .pytest_cache/
 .venv/
+node_modules/
+.worktrees/
+.test-output/
+# Temporary runtime link while the separate TERMIN8 prototype is still open.
+/terminal
+/_contain.mjs
+/_pos.mjs
+/scripts/screenshot.mjs
+
+# Local desktop captures can contain unrelated chats; publish fixture evidence only.
+docs/evidence/ui-audit/live*.png
+docs/evidence/ui-audit/live.json
+docs/evidence/ui-audit/sizing-live*.png
+docs/evidence/ui-audit/*-failure.png

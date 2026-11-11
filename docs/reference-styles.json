@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "referenceFiles": 20,
+  "uniqueReferenceIdentities": 19,
+  "candidateLayoutFamilies": [
+    "silver",
+    "quicktime",
+    "wmp-curved",
+    "handheld",
+    "droplet",
+    "wmp-classic",
+    "wmp-glass",
+    "jetaudio",
+    "organic",
+    "dark-playlist",
+    "wmp-library"
+  ],
+  "status": "Geometry implemented as candidate adaptations; final independent/native acceptance is separate.",
+  "references": [
+    {
+      "file": "13c185f4418ff0f1dde10194542be057-2316257832.png",
+      "sha256": "169d3617902f05f4ed982f98ba7682d21f5ce57350034ca6992ce89754b1f666",
+      "bytes": 280133,
+      "style": "quicktime",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "4ab0c754af8cb7b322cca022c7da1539-2490956567.jpg",
+      "sha256": "6f48b0b5eee85e1425a18295b25c70b6a8826238eea3b9bf6baef747606fe9f3",
+      "bytes": 31029,
+      "style": "wmp-curved",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "4c9176803703a9ca83dd91cd90031c74-1792163538.jpg",
+      "sha256": "daa90094465ef258ba71a18e02857d39b5317b160f353fb59037c427f0a09ba7",
+      "bytes": 17754,
+      "style": "handheld",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "60c704ea101d6fefc8b026eb4a0f164a-3794365472.png",
+      "sha256": "6577feba682d7ef70176ed7d5d243d4dbaa674da910033972694391c8aa8b1d9",
+      "bytes": 199762,
+      "style": "wmp-classic",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "9c878b9c6fc4e27692d5144e8cfbdd62-1174802232.jpg",
+      "sha256": "6a7a5dd7df1cd58dbc2e0afc554c2c79ebaa108588300f79433915c64ba931d4",
+      "bytes": 69331,
+      "style": "droplet",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "Codex Image Sep 4, 2026, 11_37_53 PM.png",
+      "sha256": "4d0040c915cfd9576f508ef15aafff262d034a75c0416ee944a754452512c78c",
+      "bytes": 1288707,
+      "style": "silver",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "Codex Image Sep 4, 2026, 11_40_34 PM.png",
+      "sha256": "6ad1c20559b203cffe83a63630ce9466f2bd13ce3dd51fd58bd5512e4d1415db",
+      "bytes": 746257,
+      "style": "silver",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "OIP-1650132720.jpg",
+      "sha256": "1b2972831786d469a48e94d60ae931fe0deb16a7714b4af07e89b1b5e4f5e74e",
+      "bytes": 38941,
+      "style": "wmp-classic",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "OIP-2297706548.jpg",
+      "sha256": "ecd43fa52e383367977677614574e732c82fb46bbcba87d3e490a74a8cfc448a",
+      "bytes": 23067,
+      "style": "wmp-glass",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "OIP-3142359896.jpg",
+      "sha256": "0dd4d010bd1858bb9d1fbe91a41317c7ef835a14a699dbd4b079db8e2fa04e55",
+      "bytes": 36237,
+      "style": "jetaudio",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "ddddd Background Removed.png",
+      "sha256": "18cd4ab491cf14e4aa65b93fa67d95dbae9639a7b7cb5c7e451c1ee6c1a72b96",
+      "bytes": 2255072,
+      "style": "silver",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "ddddd.png",
+      "sha256": "f941f7bbb81fc43860634c16fff793d989aaf22cfa4c1e439b1286d71e994128",
+      "bytes": 8672370,
+      "style": "silver",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "ee20c6d50a40a801533c83c38a66dad9-260147508.png",
+      "sha256": "97a91d1b8fcf7eadb09783e1fa621c66a22ae5c2fc3519c85c1a4889fd14c106",
+      "bytes": 666553,
+      "style": "organic",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "exec-c6c79234-cbc2-4c00-a1bd-ef6e9ea549fb (1).png",
+      "sha256": "f3b1c19e67c1a7ed2bb8f3b8fcb54ebbf160946333977c82fdcf344dec6224b4",
+      "bytes": 1466468,
+      "style": "silver",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "exec-c6c79234-cbc2-4c00-a1bd-ef6e9ea549fb.png",
+      "sha256": "f3b1c19e67c1a7ed2bb8f3b8fcb54ebbf160946333977c82fdcf344dec6224b4",
+      "bytes": 1466468,
+      "style": "silver",
+      "duplicateOf": "exec-c6c79234-cbc2-4c00-a1bd-ef6e9ea549fb (1).png",
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "fed77912d7491b2dbc3da3f796d92413-357402169.jpg",
+      "sha256": "bc98c346ed4018b108435985eb6c1a486a475a6f5ccd8dff67265b61e8e7acc4",
+      "bytes": 69073,
+      "style": "wmp-classic",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "hqdefault-4274162413.jpg",
+      "sha256": "65e6d6903ab72a12c5c22d9b676f61151e8311bc9b7fc4ddf15403021487945c",
+      "bytes": 36705,
+      "style": "wmp-classic",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "maxresdefault-808885378.jpg",
+      "sha256": "d600f0d36cfb54e62ad312b6f2cf28ed639610756ba38e4052f39117aff7e740",
+      "bytes": 67570,
+      "style": "dark-playlist",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "media-player-music-player-268005959.png",
+      "sha256": "38683f4329ec0aacc7be6cab8cea9d199a5cd6b44063a5d04d94a481f47110f7",
+      "bytes": 158061,
+      "style": "wmp-library",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    },
+    {
+      "file": "sdfaadfs.png",
+      "sha256": "31d7555852d5d8b7a47e1321fd6a33fe42436733df3b506c973a76943dbc97b6",
+      "bytes": 1505787,
+      "style": "silver",
+      "duplicateOf": null,
+      "classification": "reference/view-state; not one style per file"
+    }
+  ],
+  "adaptations": [
+    "Silver backgrounds/halos and the byte-identical export are not new styles. Classic application screenshots include different content/view states.",
+    "Desktop-width application layouts show independent playlist-target panels at 480px and above. Narrow layouts retain navigation and open playlist targets in the main screen.",
+    "Library layout shows the real current track and a grid of real search results; it does not claim a saved-album database.",
+    "Organic layout implements three framed regions and a tapered green housing; the original illustrated face and playback equalizer are not reproduced.",
+    "jetAudio uses actual position/duration/volume counters, not fake alarms, rip, burn, record or broadcast controls.",
+    "Compact/off geometries without a matching source screenshot are functional adaptations, not historical replica claims."
+  ],
+  "rights": "User-supplied visual research is not redistribution clearance. No source screenshot, third-party illustration or product logo is bundled as a runtime asset. Original CSS/vector geometry and existing licensed renderer code only."
+}

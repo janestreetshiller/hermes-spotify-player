@@ -1,0 +1,13 @@
+{
+  "source": "synthetic frames and Spotify fixtures, not live account operations",
+  "results": [
+    "Visual starts immediately; no capture before selection and no live overlays",
+    "spectrum: data-driven pixels; silence clears; leaving Visual stops capture",
+    "scope: data-driven pixels; silence clears; leaving Visual stops capture",
+    "alchemy: data-driven pixels; silence clears; leaving Visual stops capture",
+    "Reduced motion and unmount stop source and polling",
+    "Permission failure is explicit, not simulated audio",
+    "Late start response after closing the view is explicitly stopped without frame polling",
+    "Playlist rows visible at 234/340px; song target pinned across playback changes"
+  ]
+}
