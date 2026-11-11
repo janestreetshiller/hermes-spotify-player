@@ -8,7 +8,7 @@ import io
 import re
 import subprocess
 import time
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import closing, redirect_stderr, redirect_stdout
 from pathlib import Path
 from threading import Lock, Thread
 from types import SimpleNamespace
@@ -19,7 +19,10 @@ from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from hermes_cli.auth_constants import DEFAULT_SPOTIFY_REDIRECT_URI
+try:
+    from hermes_cli.auth_constants import DEFAULT_SPOTIFY_REDIRECT_URI
+except ImportError:
+    from hermes_cli.auth import DEFAULT_SPOTIFY_REDIRECT_URI
 from hermes_cli.auth_spotify import (
     get_spotify_auth_status,
     login_spotify_command,
@@ -155,10 +158,9 @@ def _run_spotify_auth(client_id: str) -> None:
             login_spotify_command(args)
         with _AUTH_LOCK:
             _AUTH_FLOW.update(phase="connected", message="Spotify connected securely.")
-    except BaseException as exc:  # CLI auth may raise SystemExit on OAuth denial.
-        message = str(exc).strip() or "Spotify authorization did not complete."
+    except BaseException:  # CLI auth may raise SystemExit on OAuth denial.
         with _AUTH_LOCK:
-            _AUTH_FLOW.update(phase="error", message=message[:240])
+            _AUTH_FLOW.update(phase="error", message="Spotify authorization did not complete.")
 
 
 @router.get("/auth/status")
@@ -227,7 +229,7 @@ def _ensure_spotify_running_hidden() -> None:
     if launch.returncode != 0:
         raise HTTPException(
             status_code=502,
-            detail=launch.stderr.strip() or "Could not start Spotify in the background.",
+            detail="Could not start Spotify in the background.",
         )
 
     for _ in range(12):
@@ -341,7 +343,7 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
                 "GET", "/search", params={"q": argument, "type": "track", "limit": 10}
             )
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Spotify search failed: {exc}") from exc
+            raise HTTPException(status_code=502, detail="Spotify search failed.") from exc
 
         items = payload.get("tracks", {}).get("items", []) if isinstance(payload, dict) else []
         results = []
@@ -392,7 +394,7 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
         except HTTPException:
             raise
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Spotify library update failed: {exc}") from exc
+            raise HTTPException(status_code=502, detail="Spotify library update failed.") from exc
 
     if action == "playlists":
         try:
@@ -413,7 +415,7 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
                 })
             return {"ok": True, "playlists": playlists}
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Could not load Spotify playlists: {exc}") from exc
+            raise HTTPException(status_code=502, detail="Could not load Spotify playlists.") from exc
 
     if action == "playlist-add":
         try:
@@ -429,7 +431,7 @@ def control_spotify(request: ControlRequest) -> dict[str, Any]:
             receipt = SpotifyClient().request("POST", f"/playlists/{playlist_id}/items", json_body={"uris": [uri]})
             return {"ok": True, "added": True, "playlistId": playlist_id, "uri": uri, "snapshotId": receipt.get("snapshot_id", "")}
         except Exception as exc:
-            raise HTTPException(status_code=502, detail=f"Could not add track to playlist: {exc}") from exc
+            raise HTTPException(status_code=502, detail="Could not add track to playlist.") from exc
 
     if action in {"volume", "seek"}:
         try:
@@ -491,7 +493,7 @@ def curate_spotify(selection: dict[str, Any]) -> dict[str, Any]:
                 results.append({'query':query,'candidates':candidates})
             return {'ok':True,'mutation':False,'results':results}
         except Exception as exc:
-            raise HTTPException(status_code=502,detail=f'Spotify search failed: {exc}') from exc
+            raise HTTPException(status_code=502,detail='Spotify search failed.') from exc
     if action == 'taste':
         try:
             payload=SpotifyClient().request('GET','/me/tracks',params={'limit':20,'offset':0})
@@ -499,7 +501,7 @@ def curate_spotify(selection: dict[str, Any]) -> dict[str, Any]:
             return {'ok':True,'mutation':False,'sample':True,'source':'recent liked songs','tracks':tracks,
                     'sampleCount':len(tracks),'total':payload.get('total'),'hasMore':bool(payload.get('next'))}
         except Exception as exc:
-            raise HTTPException(status_code=502,detail=f'Could not read taste sample: {exc}') from exc
+            raise HTTPException(status_code=502,detail='Could not read taste sample.') from exc
     if action == 'set-liked':
         uris=_curation_tracks(selection.get('tracks'))
         saved=selection.get('saved')
@@ -512,8 +514,8 @@ def curate_spotify(selection: dict[str, Any]) -> dict[str, Any]:
             confirmed=isinstance(states,list) and len(states)==len(uris) and all(v is saved for v in states)
             return {'ok':confirmed,'verified':confirmed,'trackCount':len(uris),'uris':uris,'saved':states,
                     **({} if confirmed else {'error':'Spotify did not confirm every liked-state update. Read current state before retrying.'})}
-        except Exception as exc:
-            return {'ok':False,'verified':False,'uris':uris,'error':f'Liked-state update uncertain: {exc}'}
+        except Exception:
+            return {'ok':False,'verified':False,'uris':uris,'error':'Liked-state update uncertain. Read current state before retrying.'}
     if action != "create":
         raise HTTPException(status_code=400, detail="Unsupported curation action.")
     name = selection.get("name")
@@ -534,40 +536,58 @@ def curate_spotify(selection: dict[str, Any]) -> dict[str, Any]:
             for song in songs
         ):
             raise HTTPException(status_code=400, detail='Use either tracks, or 1–20 songs with explicit title and artist.')
-        client=SpotifyClient()
-        tracks=[]
-        unresolved=[]
-        for song in songs:
-            payload=client.request('GET','/search',params={'q':f"track:{song['title']} artist:{song['artist']}",'type':'track','limit':3})
-            candidates=payload.get('tracks',{}).get('items',[])
-            exact=[t for t in candidates if t.get('name','').casefold()==song['title'].casefold()
-                   and any(a.get('name','').casefold()==song['artist'].casefold() for a in t.get('artists',[]))]
-            if exact:
-                tracks.append(exact[0].get('uri'))
-            else:
-                unresolved.append({'song':song,'candidates':[_curation_track(t) for t in candidates]})
-        if unresolved:
-            raise HTTPException(status_code=422,detail={'message':'No playlist was created: some named songs had no exact title/artist match. Review candidates and use explicit URIs.', 'unresolved':unresolved})
-    uris = _curation_tracks(tracks)
+        request_tracks = {"songs": [{"title": song["title"], "artist": song["artist"]} for song in songs]}
+    else:
+        uris = _curation_tracks(tracks)
+        request_tracks = {"uris": uris}
     body = {"name": name, "description": description, "public": public, "collaborative": False}
-    fingerprint = hashlib.sha256(json.dumps({"body":body,"uris":uris}, sort_keys=True).encode()).hexdigest()
+    fingerprint = hashlib.sha256(json.dumps({"body":body, **request_tracks}, sort_keys=True).encode()).hexdigest()
     directory = get_hermes_home() / 'spotify-player'
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     db_path = directory / 'curation.sqlite3'
-    with sqlite3.connect(db_path, timeout=5) as db:
+    with closing(sqlite3.connect(db_path, timeout=5)) as db, db:
         db_path.chmod(0o600)
         db.execute('CREATE TABLE IF NOT EXISTS receipts (request_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, result TEXT NOT NULL)')
         db.execute('BEGIN IMMEDIATE')
         prior = db.execute('SELECT fingerprint,result FROM receipts WHERE request_id=?', (request_id,)).fetchone()
         if prior:
-            if prior[0] != fingerprint:
-                raise HTTPException(status_code=409, detail="requestId was already used for a different playlist.")
-            return {**json.loads(prior[1]), "replayed":True}
-        # Commit the intent before a non-idempotent remote POST. A lost response
-        # stays explicitly uncertain rather than creating a duplicate on retry.
+            replay = json.loads(prior[1])
+            resolved_fingerprint = replay.pop("_resolved_fingerprint", None)
+            if prior[0] != fingerprint and resolved_fingerprint != fingerprint:
+                raise HTTPException(status_code=409, detail="requestId was already used or cannot be verified. Check Spotify before retrying.")
+            if not replay.get("verified") and "error" in replay:
+                replay["error"] = "Playlist creation or verification was not confirmed. Check Spotify before retrying."
+            return {**replay, "replayed":True}
+        # Reserve before any provider request. No SQLite write lock is held
+        # while resolving names or calling Spotify.
         result = {"ok":False,"verified":False,"requestId":request_id,"error":"Creation pending or interrupted. Do not retry with a new ID until Spotify is checked."}
         db.execute('INSERT INTO receipts VALUES (?,?,?)', (request_id,fingerprint,json.dumps(result)))
         db.commit()
+        if songs is not None:
+            try:
+                client=SpotifyClient()
+                tracks=[]
+                unresolved=[]
+                for song in songs:
+                    payload=client.request('GET','/search',params={'q':f"track:{song['title']} artist:{song['artist']}",'type':'track','limit':3})
+                    candidates=payload.get('tracks',{}).get('items',[])
+                    exact=[t for t in candidates if t.get('name','').casefold()==song['title'].casefold()
+                           and any(a.get('name','').casefold()==song['artist'].casefold() for a in t.get('artists',[]))]
+                    if exact:
+                        tracks.append(exact[0].get('uri'))
+                    else:
+                        unresolved.append({'song':song,'candidates':[_curation_track(t) for t in candidates]})
+                if unresolved:
+                    raise HTTPException(status_code=422,detail={'message':'No playlist was created: some named songs had no exact title/artist match. Review candidates and use explicit URIs.', 'unresolved':unresolved})
+                uris = _curation_tracks(tracks)
+            except HTTPException:
+                db.execute('DELETE FROM receipts WHERE request_id=?', (request_id,))
+                db.commit()
+                raise
+            except Exception as exc:
+                db.execute('DELETE FROM receipts WHERE request_id=?', (request_id,))
+                db.commit()
+                raise HTTPException(status_code=502,detail="Spotify search failed before playlist creation.") from exc
         try:
             client = SpotifyClient()
             created = client.request('POST', '/me/playlists', json_body=body)
@@ -588,9 +608,12 @@ def curate_spotify(selection: dict[str, Any]) -> dict[str, Any]:
             result = {"ok":True,"verified":True,"created":True,"requestId":request_id,
                       "playlistId":playlist_id,"url":result['url'],"name":name,"public":public,
                       "trackCount":len(uris),"uris":uris}
-        except Exception as exc:
-            result.update(ok=False, verified=False, error=str(exc)[:500])
-        db.execute('UPDATE receipts SET result=? WHERE request_id=?', (json.dumps(result),request_id))
+        except Exception:
+            result.update(ok=False, verified=False, error="Playlist creation or verification was not confirmed. Check Spotify before retrying.")
+        stored = dict(result)
+        if result.get("verified") and songs is not None:
+            stored["_resolved_fingerprint"] = hashlib.sha256(json.dumps({"body":body,"uris":uris}, sort_keys=True).encode()).hexdigest()
+        db.execute('UPDATE receipts SET result=? WHERE request_id=?', (json.dumps(stored),request_id))
         db.commit()
         return result
 
@@ -608,11 +631,10 @@ def _native_command(action: str, argument: str) -> dict[str, Any]:
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=504, detail="Spotify controller timed out.") from exc
     except OSError as exc:
-        raise HTTPException(status_code=502, detail=f"Could not start Spotify controller: {exc}") from exc
+        raise HTTPException(status_code=502, detail="Could not start Spotify controller.") from exc
 
     if result.returncode != 0:
-        detail = result.stderr.strip() or "Spotify controller failed."
-        raise HTTPException(status_code=502, detail=detail)
+        raise HTTPException(status_code=502, detail="Spotify controller failed.")
 
     try:
         payload = json.loads(result.stdout)

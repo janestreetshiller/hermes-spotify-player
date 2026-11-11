@@ -8,6 +8,8 @@ from pathlib import Path
 
 def _curate(args, **_kwargs):
     # Load lazily: desktop-only users need not initialize Web API auth.
+    from fastapi import HTTPException
+
     try:
         spec = importlib.util.spec_from_file_location('spotify_player_curation_api', Path(__file__).parent / 'dashboard' / 'plugin_api.py')
         if spec is None or spec.loader is None:
@@ -15,8 +17,10 @@ def _curate(args, **_kwargs):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return json.dumps(module.curate_spotify(args))
-    except Exception as exc:
-        return json.dumps({'ok':False,'verified':False,'error':getattr(exc,'detail',str(exc))})
+    except HTTPException as exc:
+        return json.dumps({'ok':False,'verified':False,'error':exc.detail})
+    except Exception:
+        return json.dumps({'ok':False,'verified':False,'error':'Curation failed. Check Spotify before retrying.'})
 
 
 def register(ctx):

@@ -62,6 +62,139 @@ class SpotifyPluginApiTests(unittest.TestCase):
             self.assertEqual(liked.json()['trackCount'],1)
             self.assertEqual(fake.request.call_args_list[-1].args,('GET','/me/library/contains'))
 
+    def test_api_errors_do_not_expose_exception_details(self):
+        from unittest.mock import Mock
+        api = load_api_module()
+        secret = 'Traceback: access_token=do-not-disclose'
+        fake = Mock()
+        fake.request.side_effect = RuntimeError(secret)
+        uri = 'spotify:track:' + 'a' * 22
+        with patch.object(api, 'SpotifyClient', return_value=fake):
+            client = make_client(api)
+            responses = [
+                client.post('/control', json={'action': 'search', 'argument': 'music'}),
+                client.post('/curate', json={'action': 'preview', 'queries': ['music']}),
+                client.post('/curate', json={'action': 'taste'}),
+                client.post('/curate', json={'action': 'set-liked', 'tracks': [uri], 'saved': True}),
+            ]
+        self.assertEqual([response.status_code for response in responses], [502, 502, 502, 200])
+        for response in responses:
+            self.assertNotIn(secret, response.text)
+        self.assertFalse(responses[-1].json()['verified'])
+        self.assertIn('Read current state', responses[-1].json()['error'])
+
+    def test_failed_creation_and_legacy_receipt_do_not_expose_errors(self):
+        import os
+        import sqlite3
+        import tempfile
+        from contextlib import closing
+        from unittest.mock import Mock
+        api = load_api_module()
+        secret = 'Traceback: access_token=do-not-disclose'
+        fake = Mock()
+        fake.request.side_effect = [{'id': 'b' * 22}, RuntimeError(secret)]
+        uri = 'spotify:track:' + 'a' * 22
+        body = {'action': 'create', 'name': 'Partial', 'tracks': [uri], 'requestId': 'partial-secret'}
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'HERMES_HOME': home}), patch.object(api, 'SpotifyClient', return_value=fake):
+            client = make_client(api)
+            response = client.post('/curate', json=body)
+            self.assertNotIn(secret, response.text)
+            self.assertEqual(response.json()['playlistId'], 'b' * 22)
+            path = Path(home) / 'spotify-player' / 'curation.sqlite3'
+            with closing(sqlite3.connect(path)) as db, db:
+                receipt = response.json()
+                receipt['error'] = secret
+                db.execute('UPDATE receipts SET result=?', (json.dumps(receipt),))
+            replay = client.post('/curate', json=body)
+            self.assertTrue(replay.json()['replayed'])
+            self.assertEqual(replay.json()['playlistId'], 'b' * 22)
+            self.assertNotIn(secret, replay.text)
+            self.assertEqual(fake.request.call_count, 2)
+
+    def test_named_song_retry_reads_receipt_without_search_or_mutation(self):
+        import os
+        import tempfile
+        from unittest.mock import Mock
+        api = load_api_module()
+        uri = 'spotify:track:' + 'a' * 22
+        body = {'action': 'create', 'name': 'Named mix', 'songs': [{'title': 'Night', 'artist': 'Artist'}], 'requestId': 'named-retry'}
+        search = {'tracks': {'items': [{'uri': uri, 'name': 'Night', 'artists': [{'name': 'Artist'}]}]}}
+        playlist = {'id': 'b' * 22, 'name': 'Named mix', 'public': False, 'collaborative': False}
+        for interrupted in (False, True):
+            with self.subTest(interrupted=interrupted), tempfile.TemporaryDirectory() as home:
+                fake = Mock()
+                fake.request.side_effect = ([search, {'id': 'b' * 22}, RuntimeError('response lost')] if interrupted else
+                    [search, playlist, {}, playlist, {'items': [{'item': {'uri': uri}}], 'total': 1, 'next': None}])
+                with patch.dict(os.environ, {'HERMES_HOME': home}), patch.object(api, 'SpotifyClient', return_value=fake):
+                    client = make_client(api)
+                    first = client.post('/curate', json=body)
+                    self.assertEqual(first.status_code, 200, first.text)
+                    self.assertEqual(first.json()['verified'], not interrupted)
+                    count = fake.request.call_count
+                    fake.request.side_effect = RuntimeError('search is unavailable')
+                    replay = client.post('/curate', json=body)
+                    self.assertEqual(replay.status_code, 200, replay.text)
+                    self.assertTrue(replay.json()['replayed'])
+                    self.assertEqual(replay.json()['playlistId'], 'b' * 22)
+                    self.assertEqual(fake.request.call_count, count)
+                    changed = client.post('/curate', json={**body, 'songs': [{'title': 'Other', 'artist': 'Artist'}]})
+                    self.assertEqual(changed.status_code, 409)
+                    self.assertEqual(fake.request.call_count, count)
+                    if not interrupted:
+                        uri_retry = {key: value for key, value in body.items() if key != 'songs'}
+                        uri_retry['tracks'] = [uri]
+                        self.assertTrue(client.post('/curate', json=uri_retry).json()['replayed'])
+                        self.assertEqual(fake.request.call_count, count)
+
+    def test_pending_named_search_does_not_lock_receipt_replay(self):
+        import os
+        import tempfile
+        from threading import Event, Thread
+        from unittest.mock import Mock
+        api = load_api_module()
+        started, release = Event(), Event()
+        fake = Mock()
+        def search(*args, **kwargs):
+            started.set()
+            self.assertTrue(release.wait(5))
+            return {'tracks': {'items': []}}
+        fake.request.side_effect = search
+        body = {'action': 'create', 'name': 'Pending', 'songs': [{'title': 'Night', 'artist': 'Artist'}], 'requestId': 'pending-test'}
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'HERMES_HOME': home}), patch.object(api, 'SpotifyClient', return_value=fake):
+            client = make_client(api)
+            responses = []
+            worker = Thread(target=lambda: responses.append(client.post('/curate', json=body)))
+            worker.start()
+            try:
+                self.assertTrue(started.wait(5))
+                replay = client.post('/curate', json=body)
+                self.assertTrue(replay.json()['replayed'])
+                self.assertFalse(replay.json()['verified'])
+                self.assertEqual(fake.request.call_count, 1)
+            finally:
+                release.set()
+                worker.join(5)
+            self.assertEqual(responses[0].status_code, 422)
+    def test_named_search_failure_can_retry_before_any_creation(self):
+        import os
+        import tempfile
+        from unittest.mock import Mock
+        api = load_api_module()
+        fake = Mock()
+        fake.request.side_effect = [RuntimeError('temporary secret'), {'tracks': {'items': []}}]
+        body = {'action': 'create', 'name': 'Retry', 'songs': [{'title': 'Night', 'artist': 'Artist'}], 'requestId': 'search-retry'}
+        with tempfile.TemporaryDirectory() as home, patch.dict(os.environ, {'HERMES_HOME': home}), patch.object(api, 'SpotifyClient', return_value=fake):
+            client = make_client(api)
+            failed = client.post('/curate', json=body)
+            self.assertEqual(failed.status_code, 502)
+            self.assertNotIn('temporary secret', failed.text)
+            retry = client.post('/curate', json=body)
+            self.assertEqual(retry.status_code, 422)
+            self.assertEqual(fake.request.call_count, 2)
+
+
+
+
     def test_curate_does_not_report_partial_creation_as_success(self):
         import tempfile, os
         from unittest.mock import Mock

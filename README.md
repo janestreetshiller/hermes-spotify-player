@@ -8,6 +8,10 @@ A native Spotify side pocket for [Hermes Desktop](https://hermes-agent.nousresea
 
 [Interactive demo](https://janestreetshiller.github.io/hermes-spotify-player/demo/) · [Release/install verification](docs/INSTALL-VERIFICATION.md) · [Privacy](PRIVACY.md)
 
+## About
+
+![Music Player — Art / Visual / Lyrics; original retro CRT workstation poster](docs/media/music-player-poster.png)
+
 It keeps playback inside the desktop workflow without embedding Spotify's Widevine-protected web player. Hermes controls the signed-in Spotify macOS app locally, while its scoped backend uses Hermes' existing Spotify PKCE connection for catalog and library actions.
 
 ## 1.3 release candidate
